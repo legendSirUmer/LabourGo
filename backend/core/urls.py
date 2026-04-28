@@ -7,14 +7,6 @@ urlpatterns = [
     path('admin/',        admin.site.urls),
     path('api/auth/',     include('accounts.urls')),
     path('api/bookings/', include('bookings.urls')),
-    path('api/reviews/',  include('reviews.urls')),   # ← ADD THIS
-]
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-urlpatterns = [
-    path('admin/',        admin.site.urls),
-    path('api/auth/',     include('accounts.urls')),
-    path('api/bookings/', include('bookings.urls')),
     path('api/reviews/',  include('reviews.urls')),
-    path('api/payments/', include('payments.urls')),  # ← ADD THIS
-]
+    path('api/payments/', include('payments.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -91,3 +91,29 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class LogoutView(APIView):
+    """
+    POST /api/auth/logout/
+    Body: { "refresh": "<refresh_token>" }
+    Blacklists the refresh token so it can't be used again.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({'message': 'Logged out successfully.'}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response(
+                {'error': 'Invalid or already blacklisted token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

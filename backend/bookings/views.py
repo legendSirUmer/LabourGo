@@ -1,7 +1,7 @@
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 
 from .models import Booking, ServiceCategory
@@ -16,11 +16,11 @@ from .serializers import (
 class ServiceCategoryListView(generics.ListAPIView):
     """
     GET /api/bookings/categories/
-    Public — Flutter uses this to show service options.
+    Public — Flutter uses this to show service options (no login needed).
     """
     queryset = ServiceCategory.objects.all()
     serializer_class = ServiceCategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
 
 class BookingCreateView(APIView):
