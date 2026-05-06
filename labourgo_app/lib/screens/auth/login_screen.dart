@@ -24,6 +24,47 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hoverSignIn = false;
   bool _hoverCreate = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _prefillEmail();
+    _redirectIfLoggedIn();
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _prefillEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('user_email')?.trim();
+    if (savedEmail != null && savedEmail.isNotEmpty) {
+      _emailCtrl.text = savedEmail;
+    }
+  }
+
+  Future<void> _redirectIfLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+    if (!isLoggedIn) return;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const CustomerDashboardTemp(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+    });
+  }
+
   Future<void> _onAuthSuccess(
     Map<String, dynamic> result, {
     String? email,
@@ -31,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', result['tokens']['access']);
     await prefs.setString('refresh_token', result['tokens']['refresh']);
+    await prefs.setBool('is_logged_in', true);
     final user = result['user'];
     if (user is Map<String, dynamic>) {
       final userEmail = (user['email'] ?? '').toString();

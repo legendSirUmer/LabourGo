@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../customer_dashboard_temp.dart';
 import 'onboarding_language.dart';
 
 class OnboardingSplash extends StatefulWidget {
@@ -37,12 +39,21 @@ class _OnboardingSplashState extends State<OnboardingSplash>
     // Auto-navigate to language screen after 2.5 seconds
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const OnboardingLanguage()),
-        );
+        _goNext();
       }
     });
+  }
+
+  Future<void> _goNext() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+    if (!mounted) return;
+    final next =
+        isLoggedIn ? const CustomerDashboardTemp() : const OnboardingLanguage();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => next),
+    );
   }
 
   @override

@@ -15,6 +15,7 @@ import 'screens/provider_screens/performance_screen.dart';
 import 'screens/provider_screens/pricing_screen.dart';
 import 'screens/provider_screens/availability_screen.dart';
 import 'screens/provider_screens/certificate_screen.dart';
+import 'screens/provider_screens/booking_checking_screen.dart';
 
 void main() {
   runApp(const LabourGoApp());
@@ -45,6 +46,7 @@ class LabourGoApp extends StatelessWidget {
     '/pricing': (context) => const PricingScreen(),
     '/availability': (context) => const AvailabilityScreen(),
     '/certificates': (context) => const CertificateScreen(),
+    '/view-bookings': (context) => const BookingCheckingScreen(),
   },
 );
   }

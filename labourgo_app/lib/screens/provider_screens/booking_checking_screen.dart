@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
 import '../../widgets/provider_bottom_navigation.dart';
@@ -17,19 +16,18 @@ class AppColors {
   );
 }
 
-class AvailabilityScreen extends StatefulWidget {
-  const AvailabilityScreen({super.key});
+class BookingCheckingScreen extends StatefulWidget {
+  const BookingCheckingScreen({super.key});
 
   @override
-  State<AvailabilityScreen> createState() => _AvailabilityScreenState();
+  State<BookingCheckingScreen> createState() => _BookingCheckingScreenState();
 }
 
-class _AvailabilityScreenState extends State<AvailabilityScreen>
+class _BookingCheckingScreenState extends State<BookingCheckingScreen>
     with SingleTickerProviderStateMixin {
   bool _loading = true;
-  bool _saving = false;
-  bool _isAvailable = false;
   String? _error;
+  final List<Map<String, dynamic>> _bookings = [];
 
   AnimationController? _fadeCtrl;
   Animation<double>? _fadeAnim;
@@ -42,7 +40,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
       duration: const Duration(milliseconds: 500),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl!, curve: Curves.easeOut);
-    _loadAvailability();
+    _loadBookings();
   }
 
   @override
@@ -51,42 +49,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
     super.dispose();
   }
 
-  Future<int?> _resolveProviderId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedId = prefs.getInt('provider_id');
-    if (storedId != null) return storedId;
-
-    final email = prefs.getString('user_email') ?? '';
-    final phone = prefs.getString('user_phone') ?? '';
-    if (email.isEmpty || phone.isEmpty) return null;
-
-    final provider = await ApiService.findProviderByEmailPhone(email, phone);
-    final providerId = provider?['id'];
-    if (providerId is int) {
-      await prefs.setInt('provider_id', providerId);
-      return providerId;
-    }
-    if (providerId is String) {
-      final parsed = int.tryParse(providerId);
-      if (parsed != null) {
-        await prefs.setInt('provider_id', parsed);
-        return parsed;
-      }
-    }
-
-    return null;
-  }
-
-  bool _parseAvailability(dynamic value) {
-    if (value is bool) return value;
-    if (value is String) {
-      return value.toLowerCase() == 'true' || value == '1';
-    }
-    if (value is num) return value != 0;
-    return false;
-  }
-
-  Future<void> _loadAvailability() async {
+  Future<void> _loadBookings() async {
     if (!mounted) return;
     setState(() {
       _loading = true;
@@ -94,94 +57,44 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
     });
 
     try {
-      final providerId = await _resolveProviderId();
+      final data = await ApiService.fetchMyBookings();
       if (!mounted) return;
-      if (providerId == null) {
-        setState(() => _error = 'Provider not found');
-        _fadeCtrl?.forward(from: 0);
-        return;
-      }
-
-      final data = await ApiService.getProviderById(providerId);
-      if (!mounted) return;
-
       setState(() {
-        _isAvailable = _parseAvailability(data['availability']);
+        _bookings
+          ..clear()
+          ..addAll(data);
       });
       _fadeCtrl?.forward(from: 0);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Failed to load availability');
+      setState(() => _error = 'Failed to load bookings');
       _fadeCtrl?.forward(from: 0);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _toggleAvailability(bool value) async {
-    if (_saving) return;
-    final previous = _isAvailable;
-
-    setState(() {
-      _saving = true;
-      _isAvailable = value;
-    });
-
-    try {
-      final providerId = await _resolveProviderId();
-      if (!mounted) return;
-      if (providerId == null) {
-        setState(() {
-          _error = 'Provider not found';
-          _isAvailable = previous;
-        });
-        return;
-      }
-
-      final data = await ApiService.toggleAvailability(providerId);
-      if (!mounted) return;
-
-      setState(() {
-        _isAvailable = _parseAvailability(data['availability']);
-      });
-
-      _showSnack(
-        _isAvailable
-            ? 'You are now available for jobs'
-            : 'You are now unavailable for jobs',
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isAvailable = previous);
-      _showSnack('Failed to update availability: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'accepted':
+        return const Color(0xFF1FA971);
+      case 'in_progress':
+        return const Color(0xFF2AB0BC);
+      case 'completed':
+        return const Color(0xFF4682B4);
+      case 'cancelled':
+        return const Color(0xFFE24B4A);
+      default:
+        return const Color(0xFFFFAA00);
     }
   }
 
-  void _showSnack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
-        backgroundColor:
-            isError ? const Color(0xFFE24B4A) : AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-    );
+  String _formatStatus(String status) {
+    final words = status.split('_');
+    return words
+        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
-
-  Color get _statusColor =>
-      _isAvailable ? const Color(0xFF1FA971) : const Color(0xFFE24B4A);
-
-  String get _statusTitle =>
-      _isAvailable ? 'Available for jobs' : 'Currently unavailable';
-
-  String get _statusSubtitle => _isAvailable
-      ? 'Customers can discover and book your services now.'
-      : 'Pause incoming work until you are ready again.';
 
   @override
   Widget build(BuildContext context) {
@@ -189,15 +102,15 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
       backgroundColor: AppColors.background,
       body: _loading ? _buildLoader() : _buildContent(),
       bottomNavigationBar: ProviderBottomNavigation(
-        currentIndex: 0,
+        currentIndex: 2,
         onTap: (index) {
-          if (index == 0) return;
+          if (index == 2) return;
           switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/provider_dashboard');
+              break;
             case 1:
               Navigator.pushReplacementNamed(context, '/profile');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/view-bookings');
               break;
             case 3:
               Navigator.pushReplacementNamed(context, '/customer_dashboard');
@@ -230,7 +143,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
           ),
           const SizedBox(height: 16),
           const Text(
-            'Loading availability...',
+            'Loading bookings...',
             style: TextStyle(color: AppColors.primary, fontSize: 13),
           ),
         ],
@@ -253,11 +166,9 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (_error != null) _buildErrorBanner(),
-                  _buildStatusCard(),
+                  _buildSummaryCard(),
                   const SizedBox(height: 20),
-                  _buildAvailabilityControlCard(),
-                  const SizedBox(height: 20),
-                  _buildInfoCard(),
+                  _buildBookingsSection(),
                 ],
               ),
             ),
@@ -316,7 +227,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                         onTap: () => Navigator.maybePop(context),
                       ),
                       const Text(
-                        'Availability',
+                        'Bookings',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 17,
@@ -325,7 +236,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                       ),
                       _HeaderBtn(
                         icon: Icons.refresh_rounded,
-                        onTap: _loadAvailability,
+                        onTap: _loadBookings,
                       ),
                     ],
                   ),
@@ -338,14 +249,14 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
-                      Icons.toggle_on_outlined,
+                      Icons.book_online_rounded,
                       color: Colors.white,
-                      size: 34,
+                      size: 32,
                     ),
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Manage Availability',
+                    'Customer Bookings',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -354,16 +265,13 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Control whether customers can book your services right now',
+                    'Review job requests with customer name, phone, and address',
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(20),
@@ -371,16 +279,14 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _isAvailable
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.pause_circle_outline_rounded,
+                        const Icon(
+                          Icons.list_alt_rounded,
                           color: Colors.white70,
                           size: 14,
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          _isAvailable ? 'Status: Available' : 'Status: Unavailable',
+                          '${_bookings.length} booking${_bookings.length == 1 ? '' : 's'}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -399,7 +305,11 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
     );
   }
 
-  Widget _buildStatusCard() {
+  Widget _buildSummaryCard() {
+    final pendingCount = _bookings.where(
+      (item) => (item['status'] ?? '').toString().toLowerCase() == 'pending',
+    ).length;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -416,17 +326,15 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: _statusColor.withOpacity(0.12),
+              color: const Color(0xFFE8F2FB),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              _isAvailable
-                  ? Icons.check_circle_outline_rounded
-                  : Icons.remove_circle_outline_rounded,
-              color: _statusColor,
+            child: const Icon(
+              Icons.people_alt_outlined,
+              color: AppColors.primary,
               size: 24,
             ),
           ),
@@ -436,7 +344,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'CURRENT STATUS',
+                  'BOOKING OVERVIEW',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -446,7 +354,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _statusTitle,
+                  '$pendingCount pending request${pendingCount == 1 ? '' : 's'}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -454,9 +362,9 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  _statusSubtitle,
-                  style: const TextStyle(
+                const Text(
+                  'Open each booking to review customer details and job location.',
+                  style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFF5A7A9A),
                     height: 1.4,
@@ -470,108 +378,58 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
     );
   }
 
-  Widget _buildAvailabilityControlCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'BOOKING SWITCH',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-              letterSpacing: 0.08,
+  Widget _buildBookingsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'ALL BOOKINGS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+                letterSpacing: 0.08,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F9FF),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Available for Jobs',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E3A5F),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _isAvailable
-                            ? 'Customers can send new booking requests.'
-                            : 'New job requests are paused for now.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF5A7A9A),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F2FB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_bookings.length} total',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
-                const SizedBox(width: 12),
-                Switch.adaptive(
-                  value: _isAvailable,
-                  onChanged: _saving ? null : _toggleAvailability,
-                  activeColor: const Color(0xFF1FA971),
-                ),
-              ],
-            ),
-          ),
-          if (_saving) ...[
-            const SizedBox(height: 14),
-            Row(
-              children: const [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Updating availability...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF5A7A9A),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        if (_bookings.isEmpty)
+          _buildEmptyState()
+        else
+          ...List.generate(
+            _bookings.length,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildBookingCard(_bookings[index]),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -583,37 +441,153 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F2FB),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.book_outlined,
+              color: AppColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No bookings yet',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E3A5F),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Customer booking requests will appear here',
+            style: TextStyle(fontSize: 12, color: Color(0xFF8FA8C0)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(Map<String, dynamic> booking) {
+    final customer = booking['customer'] as Map<String, dynamic>?;
+    final customerName = (customer?['full_name'] ?? 'Customer').toString();
+    final customerPhone = (customer?['phone'] ?? 'Phone not available').toString();
+    final address = (booking['location_address'] ?? 'Address not available').toString();
+    final status = (booking['status'] ?? 'pending').toString();
+    final category = booking['category'] as Map<String, dynamic>?;
+    final serviceName = (category?['name'] ?? 'Service').toString();
+    final scheduledDate = (booking['scheduled_date'] ?? '').toString();
+    final scheduledTime = (booking['scheduled_time'] ?? '').toString();
+    final price = booking['price_offered']?.toString();
+    final statusColor = _statusColor(status);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'WHAT THIS DOES',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-              letterSpacing: 0.08,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F2FB),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customerName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E3A5F),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      serviceName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF5A7A9A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _formatStatus(status),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
-          _InfoRow(
-            icon: Icons.visibility_outlined,
-            title: 'Visible to customers',
-            subtitle: 'Stay discoverable when you are ready to accept work.',
+          _BookingDetailRow(
+            icon: Icons.phone_outlined,
+            label: 'Phone',
+            value: customerPhone,
           ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            icon: Icons.pause_circle_outline_rounded,
-            title: 'Pause requests anytime',
-            subtitle: 'Turn availability off during breaks or busy hours.',
+          const SizedBox(height: 8),
+          _BookingDetailRow(
+            icon: Icons.location_on_outlined,
+            label: 'Address',
+            value: address,
           ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            icon: Icons.sync_alt_rounded,
-            title: 'Changes apply instantly',
-            subtitle: 'Your dashboard and provider status stay in sync.',
-          ),
+          if (scheduledDate.isNotEmpty || scheduledTime.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _BookingDetailRow(
+              icon: Icons.schedule_outlined,
+              label: 'Schedule',
+              value: '$scheduledDate ${scheduledTime.isNotEmpty ? 'at $scheduledTime' : ''}'.trim(),
+            ),
+          ],
+          if (price != null && price.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _BookingDetailRow(
+              icon: Icons.payments_outlined,
+              label: 'Offered Price',
+              value: 'PKR $price',
+            ),
+          ],
         ],
       ),
     );
@@ -675,15 +649,15 @@ class _HeaderBtn extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
+class _BookingDetailRow extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String label;
+  final String value;
 
-  const _InfoRow({
+  const _BookingDetailRow({
     required this.icon,
-    required this.title,
-    required this.subtitle,
+    required this.label,
+    required this.value,
   });
 
   @override
@@ -691,38 +665,24 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F2FB),
-            borderRadius: BorderRadius.circular(12),
+        Icon(icon, color: const Color(0xFF7A9BB8), size: 16),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1E3A5F),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
         ),
-        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E3A5F),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF5A7A9A),
-                  height: 1.4,
-                ),
-              ),
-            ],
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF5A7A9A),
+              height: 1.4,
+            ),
           ),
         ),
       ],

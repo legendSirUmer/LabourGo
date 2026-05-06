@@ -79,6 +79,8 @@ class _ProviderSignInScreenState extends State<ProviderSignInScreen> {
       await prefs.setString('user_email', email);
       await prefs.setString('user_phone', cleanPhone);
       await prefs.setString('user_name', (provider['name'] ?? '').toString());
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setBool('is_provider_signed_in', true);
 
       Navigator.pushReplacementNamed(context, '/provider_dashboard');
     } catch (e) {

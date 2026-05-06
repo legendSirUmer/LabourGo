@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/provider_bottom_navigation.dart';
 
 const _kBg = Color(0xFFF4F8FD);
 
@@ -14,6 +15,7 @@ class ProviderDashboardScreen extends StatefulWidget {
 }
 
 class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
+
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _provider;
@@ -83,6 +85,17 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('provider_id');
+    await prefs.setBool('is_logged_in', false);
+    await prefs.setBool('is_provider_signed_in', false);
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     final providerName =
@@ -144,6 +157,7 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
               _DashboardHeader(
                 providerName: providerName,
                 profileImageUrl: profileImageUrl,
+                onLogout: _handleLogout,
               ),
 
               const SizedBox(height: 18),
@@ -420,10 +434,12 @@ class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({
     required this.providerName,
     required this.profileImageUrl,
+    required this.onLogout,
   });
 
   final String providerName;
   final String? profileImageUrl;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -453,9 +469,7 @@ class _DashboardHeader extends StatelessWidget {
               ),
               const Spacer(),
               IconButton(
-                onPressed: () {
-                  // Add logout logic here
-                },
+                onPressed: onLogout,
                 icon: const Icon(
                   Icons.logout_rounded,
                   color: AppColors.white,

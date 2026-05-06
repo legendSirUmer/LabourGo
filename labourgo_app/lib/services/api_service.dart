@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -330,6 +332,39 @@ class ApiService {
     }
 
     return _decodeMap(response.body);
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchMyBookings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('access_token') ?? '';
+    if (accessToken.isEmpty) {
+      throw Exception('Please sign in again.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/bookings/my-bookings/'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_formatError(response.body, response.statusCode));
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    final decoded = json.decode(response.body);
+    if (decoded is! List) {
+      throw Exception('Unexpected response from server');
+    }
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
   }
 
   static Future<Map<String, dynamic>> toggleAvailability(

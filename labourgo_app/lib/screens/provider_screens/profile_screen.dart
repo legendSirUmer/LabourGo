@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../widgets/provider_bottom_navigation.dart';
 
 // --------------------------------------------
 // App Colors
@@ -379,6 +380,23 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _loading ? _buildLoader() : _buildContent(),
+      bottomNavigationBar: ProviderBottomNavigation(
+        currentIndex: 1,
+        onTap: (index) {
+          if (index == 1) return;
+          switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/provider_dashboard');
+              break;
+            case 2:
+              Navigator.pushReplacementNamed(context, '/view-bookings');
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/customer_dashboard');
+              break;
+          }
+        },
+      ),
     );
   }
 

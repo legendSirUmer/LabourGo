@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -26,7 +27,20 @@ class _ProviderIntroScreenState extends State<ProviderIntroScreen> {
   @override
   void initState() {
     super.initState();
+    _redirectIfSignedIn();
     _loadStats();
+  }
+
+  Future<void> _redirectIfSignedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isProviderSignedIn =
+        prefs.getBool('is_provider_signed_in') ?? false;
+    if (!isProviderSignedIn) return;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/provider_dashboard');
+    });
   }
 
   Future<void> _loadStats() async {

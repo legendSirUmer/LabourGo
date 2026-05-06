@@ -21,11 +21,20 @@ class ProviderBasicSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'phone', 'profile_pic']
 
 
+class CustomerBasicSerializer(serializers.ModelSerializer):
+    """Shows minimal customer info inside a booking."""
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'phone']
+
+
 class BookingSerializer(serializers.ModelSerializer):
     """
     Full booking details — used for GET responses.
     Shows nested provider info instead of just an ID.
     """
+    customer = CustomerBasicSerializer(read_only=True)
     provider = ProviderBasicSerializer(read_only=True)
     category = ServiceCategorySerializer(read_only=True)
 

@@ -1,8 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 
 class CustomerDashboardTemp extends StatelessWidget {
   const CustomerDashboardTemp({super.key});
+
+  Future<void> _openProviderArea(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isProviderSignedIn =
+        prefs.getBool('is_provider_signed_in') ?? false;
+    if (!context.mounted) return;
+    Navigator.pushNamed(
+      context,
+      isProviderSignedIn ? '/provider_dashboard' : '/provider_intro',
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('provider_id');
+    await prefs.setBool('is_logged_in', false);
+    await prefs.setBool('is_provider_signed_in', false);
+    if (!context.mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +75,7 @@ class CustomerDashboardTemp extends StatelessWidget {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/provider_intro'),
+                  onPressed: () => _openProviderArea(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -76,8 +98,7 @@ class CustomerDashboardTemp extends StatelessWidget {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/login'),
+                  onPressed: () => _logout(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary),
