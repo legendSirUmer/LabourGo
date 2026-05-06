@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/api_service.dart';
 import '../../../theme/app_theme.dart';
 
 const _kBlue = AppColors.primary;
@@ -7,16 +8,6 @@ const _kWhite = Colors.white;
 const _kBg = Color(0xFFF4F8FD);
 const _kBorder = Color(0xFFD0E4F5);
 const _kSubText = Color(0xFF7A9ABF);
-
-// Work type options with icons
-const List<Map<String, dynamic>> _workTypes = [
-  {'label': 'Plumber', 'icon': Icons.water_drop_outlined},
-  {'label': 'Electrician', 'icon': Icons.bolt_outlined},
-  {'label': 'Carpenter', 'icon': Icons.handyman_outlined},
-  {'label': 'Cleaning', 'icon': Icons.cleaning_services_outlined},
-  {'label': 'Painter', 'icon': Icons.format_paint_outlined},
-  {'label': 'Mason', 'icon': Icons.foundation_outlined},
-];
 
 Future<String?> showWorkTypeBottomSheet(BuildContext context) {
   return showModalBottomSheet<String>(
@@ -35,11 +26,41 @@ class _WorkTypeSheet extends StatefulWidget {
 class _WorkTypeSheetState extends State<_WorkTypeSheet> {
   final TextEditingController _controller = TextEditingController();
   String? _selected;
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _workTypes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkTypes();
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWorkTypes() async {
+    try {
+      final categories = await ApiService.fetchServiceCategories();
+      setState(() {
+        _workTypes = categories
+            .map((item) => {
+                  'label': (item['name'] ?? '').toString(),
+                  'iconUrl': ApiService.resolveImageUrl(
+                    item['icon']?.toString(),
+                  ),
+                })
+            .where((item) => (item['label'] ?? '').toString().isNotEmpty)
+            .toList();
+      });
+    } catch (e) {
+      setState(() => _error = 'Unable to load services');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _submit(String value) {
@@ -123,78 +144,109 @@ class _WorkTypeSheetState extends State<_WorkTypeSheet> {
             // ── Work type grid ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.1,
-                ),
-                itemCount: _workTypes.length,
-                itemBuilder: (context, index) {
-                  final item = _workTypes[index];
-                  final isSelected = _selected == item['label'];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() => _selected = item['label'] as String);
-                      Future.delayed(const Duration(milliseconds: 180), () {
-                        Navigator.pop(context, item['label'] as String);
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? _kBlue.withOpacity(0.08)
-                            : _kBg,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected ? _kBlue : _kBorder,
-                          width: isSelected ? 1.8 : 1.2,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? _kBlue.withOpacity(0.12)
-                                  : _kWhite,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? _kBlue : _kBorder,
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              item['icon'] as IconData,
-                              color: isSelected ? _kBlue : _kSubText,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item['label'] as String,
-                            style: TextStyle(
+              child: _loading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _workTypes.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Text(
+                            _error ?? 'No services available',
+                            style: const TextStyle(
+                              color: _kSubText,
                               fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isSelected ? _kBlue : const Color(0xFF1A2A3A),
                               fontFamily: 'Poppins',
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                        )
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 1.1,
+                          ),
+                          itemCount: _workTypes.length,
+                          itemBuilder: (context, index) {
+                            final item = _workTypes[index];
+                            final label = (item['label'] ?? '').toString();
+                            final iconUrl = item['iconUrl'] as String?;
+                            final isSelected = _selected == label;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() => _selected = label);
+                                Future.delayed(
+                                    const Duration(milliseconds: 180), () {
+                                  Navigator.pop(context, label);
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? _kBlue.withOpacity(0.08)
+                                      : _kBg,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected ? _kBlue : _kBorder,
+                                    width: isSelected ? 1.8 : 1.2,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? _kBlue.withOpacity(0.12)
+                                            : _kWhite,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected ? _kBlue : _kBorder,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: iconUrl != null && iconUrl.isNotEmpty
+                                          ? ClipOval(
+                                              child: Image.network(
+                                                iconUrl,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            )
+                                          : Icon(
+                                              Icons.construction_rounded,
+                                              color:
+                                                  isSelected ? _kBlue : _kSubText,
+                                              size: 20,
+                                            ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? _kBlue
+                                            : const Color(0xFF1A2A3A),
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
 
             const SizedBox(height: 24),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -64,6 +65,20 @@ class _ProviderSignInScreenState extends State<ProviderSignInScreen> {
         );
         return;
       }
+
+      final prefs = await SharedPreferences.getInstance();
+      final providerId = provider['id'];
+      if (providerId is int) {
+        await prefs.setInt('provider_id', providerId);
+      } else if (providerId is String) {
+        final parsed = int.tryParse(providerId);
+        if (parsed != null) {
+          await prefs.setInt('provider_id', parsed);
+        }
+      }
+      await prefs.setString('user_email', email);
+      await prefs.setString('user_phone', cleanPhone);
+      await prefs.setString('user_name', (provider['name'] ?? '').toString());
 
       Navigator.pushReplacementNamed(context, '/provider_dashboard');
     } catch (e) {

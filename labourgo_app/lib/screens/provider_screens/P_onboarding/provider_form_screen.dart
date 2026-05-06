@@ -46,6 +46,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
   final TextEditingController phone = TextEditingController();
   final TextEditingController email = TextEditingController();
   final TextEditingController experience = TextEditingController();
+  final TextEditingController pricePerHour = TextEditingController();
   final TextEditingController cnic = TextEditingController();
 
   bool _workTypeTouched = false;
@@ -85,6 +86,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
     phone.dispose();
     email.dispose();
     experience.dispose();
+    pricePerHour.dispose();
     cnic.dispose();
     super.dispose();
   }
@@ -264,24 +266,55 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
   }
 
   try {
-    await ApiService.createProvider({
-      "name": name.text.trim(),
-      "email": email.text.trim(),
-      "phone": phone.text.trim(),
-      "skills": workType,
-      "experience": int.parse(experience.text),
-      "price_per_hour": 500,
-      "availability": true,
-      "rating": 0,
-      "jobs_completed": 0,
-      "verification_status": "pending"
-    });
+    final cleanPhone = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final experienceYears = int.tryParse(experience.text.trim());
+    final priceValue = double.tryParse(pricePerHour.text.trim());
+
+    if (experienceYears == null || priceValue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter valid numeric values")),
+      );
+      return;
+    }
+
+    final existing = await ApiService.findProviderByEmailPhone(
+      email.text.trim(),
+      cleanPhone,
+    );
+
+    if (existing != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Provider already registered")),
+      );
+      return;
+    }
+
+    final created = await ApiService.createProvider(
+      data: {
+        "name": name.text.trim(),
+        "email": email.text.trim(),
+        "phone": cleanPhone,
+        "skills": workType,
+        "experience": experienceYears,
+        "price_per_hour": priceValue,
+      },
+      image: _profileImage,
+    );
 
     // ✅ IMPORTANT FIX — SAVE USER DATA
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_email', email.text.trim());
-    await prefs.setString('user_phone', phone.text.trim());
+    await prefs.setString('user_phone', cleanPhone);
     await prefs.setString('user_name', name.text.trim());
+    final providerId = created['id'];
+    if (providerId is int) {
+      await prefs.setInt('provider_id', providerId);
+    } else if (providerId is String) {
+      final parsed = int.tryParse(providerId);
+      if (parsed != null) {
+        await prefs.setInt('provider_id', parsed);
+      }
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -587,12 +620,34 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               hint: 'e.g. 3',
               icon: Icons.workspace_premium_outlined,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (v) {
                 if (v == null || v.trim().isEmpty)
                   return 'Experience is required';
                 final n = int.tryParse(v.trim());
                 if (n == null) return 'Enter a valid number';
                 if (n < 0 || n > 50) return 'Enter a value between 0 and 50';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+
+            _ValidatedField(
+              controller: pricePerHour,
+              label: 'Price Per Hour (PKR) *',
+              hint: 'e.g. 1500',
+              icon: Icons.price_change_outlined,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              validator: (v) {
+                if (v == null || v.trim().isEmpty)
+                  return 'Price per hour is required';
+                final n = double.tryParse(v.trim());
+                if (n == null) return 'Enter a valid price';
+                if (n <= 0) return 'Price must be greater than 0';
+                if (n > 100000) return 'Enter a value below 100000';
                 return null;
               },
             ),

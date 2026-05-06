@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/api_service.dart';
 import '../../../theme/app_theme.dart';
 
 const _kBlue = AppColors.primary;
@@ -8,12 +9,72 @@ const _kBg = Color(0xFFF4F8FD);
 const _kBorder = Color(0xFFD0E4F5);
 const _kSubText = Color(0xFF7A9ABF);
 
-class ProviderIntroScreen extends StatelessWidget {
+class ProviderIntroScreen extends StatefulWidget {
   const ProviderIntroScreen({super.key});
+
+  @override
+  State<ProviderIntroScreen> createState() => _ProviderIntroScreenState();
+}
+
+class _ProviderIntroScreenState extends State<ProviderIntroScreen> {
+  bool _loading = true;
+  String? _error;
+  int? _providerCount;
+  int? _verifiedCount;
+  double? _avgRating;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final providers = await ApiService.fetchProviders();
+      int verified = 0;
+      int ratingCount = 0;
+      double ratingSum = 0;
+
+      for (final provider in providers) {
+        final status = (provider['verification_status'] ?? '').toString();
+        if (status == 'approved') {
+          verified += 1;
+        }
+
+        final rating = provider['rating'];
+        if (rating is num) {
+          ratingCount += 1;
+          ratingSum += rating.toDouble();
+        }
+      }
+
+      setState(() {
+        _providerCount = providers.length;
+        _verifiedCount = verified;
+        _avgRating = ratingCount > 0 ? ratingSum / ratingCount : null;
+      });
+    } catch (e) {
+      setState(() => _error = 'Unable to load stats');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatCount(int? value) {
+    if (value == null) return '--';
+    return value.toString();
+  }
+
+  String _formatRating(double? value) {
+    if (value == null) return '--';
+    return value.toStringAsFixed(1);
+  }
 
   @override
   Widget build(BuildContext context) {
     final canPop = Navigator.canPop(context);
+    final joinLabel = 'Join ${_formatCount(_providerCount)} Workers';
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -79,15 +140,15 @@ class ProviderIntroScreen extends StatelessWidget {
                               color: _kCyan,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.bolt_rounded,
+                                const Icon(Icons.bolt_rounded,
                                     color: _kBlue, size: 11),
-                                SizedBox(width: 3),
+                                const SizedBox(width: 3),
                                 Text(
-                                  'Join 5,000+ Workers',
-                                  style: TextStyle(
+                                  joinLabel,
+                                  style: const TextStyle(
                                     color: _kBlue,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -141,14 +202,38 @@ class ProviderIntroScreen extends StatelessWidget {
 
                   // Stats row
                   Row(
-                    children: const [
-                      _StatChip(label: '5K+', sub: 'Workers'),
-                      SizedBox(width: 10),
-                      _StatChip(label: '8 Cities', sub: 'Available'),
-                      SizedBox(width: 10),
-                      _StatChip(label: '4.8★', sub: 'Rating'),
+                    children: [
+                      _StatChip(label: _formatCount(_providerCount), sub: 'Providers'),
+                      const SizedBox(width: 10),
+                      _StatChip(label: _formatCount(_verifiedCount), sub: 'Verified'),
+                      const SizedBox(width: 10),
+                      _StatChip(label: '${_formatRating(_avgRating)}★', sub: 'Avg Rating'),
                     ],
                   ),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(_kWhite),
+                        ),
+                      ),
+                    ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: _kWhite.withOpacity(0.8),
+                          fontSize: 11,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

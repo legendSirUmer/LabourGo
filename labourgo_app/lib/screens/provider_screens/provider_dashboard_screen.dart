@@ -32,20 +32,27 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString('user_email') ?? '';
-      final phone = prefs.getString('user_phone') ?? '';
+      final storedId = prefs.getInt('provider_id');
+      Map<String, dynamic>? provider;
 
-      if (email.isEmpty || phone.isEmpty) {
-        setState(() {
-          _error = 'Missing account details. Please sign in again.';
-        });
-        return;
+      if (storedId != null) {
+        provider = await ApiService.getProviderById(storedId);
+      } else {
+        final email = prefs.getString('user_email') ?? '';
+        final phone = prefs.getString('user_phone') ?? '';
+
+        if (email.isEmpty || phone.isEmpty) {
+          setState(() {
+            _error = 'Missing account details. Please sign in again.';
+          });
+          return;
+        }
+
+        provider = await ApiService.findProviderByEmailPhone(
+          email,
+          phone,
+        );
       }
-
-      final provider = await ApiService.findProviderByEmailPhone(
-        email,
-        phone,
-      );
 
       if (provider == null) {
         setState(() {
@@ -57,6 +64,16 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
       setState(() {
         _provider = provider;
       });
+
+      final providerId = provider['id'];
+      if (providerId is int && storedId != providerId) {
+        await prefs.setInt('provider_id', providerId);
+      } else if (providerId is String) {
+        final parsed = int.tryParse(providerId);
+        if (parsed != null && storedId != parsed) {
+          await prefs.setInt('provider_id', parsed);
+        }
+      }
     } catch (e) {
       setState(() {
         _error = 'Failed to load provider data.';
@@ -72,13 +89,50 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
         (_provider?['name'] ?? 'Provider').toString().trim();
     final ratingValue = _provider?['rating'];
     final jobsValue = _provider?['jobs_completed'];
-    final ratingText = ratingValue != null
-        ? 'Rating $ratingValue'
-        : 'Rating -';
-    final jobsCount = jobsValue is num ? jobsValue.toInt() : null;
+    final priceValue = _provider?['price_per_hour'];
+    final availabilityValue = _provider?['availability'];
+    final skillsValue = _provider?['skills'];
+    final verificationStatus = _provider?['verification_status'];
+    final profileImageUrl = ApiService.resolveImageUrl(
+      _provider?['image']?.toString(),
+    );
+    final ratingNumber = ratingValue is num
+      ? ratingValue.toDouble()
+      : double.tryParse(ratingValue?.toString() ?? '');
+    final ratingText = ratingNumber != null
+      ? 'Rating ${ratingNumber.toStringAsFixed(1)}'
+      : 'Rating -';
+    final jobsCount = jobsValue is num
+      ? jobsValue.toInt()
+      : int.tryParse(jobsValue?.toString() ?? '');
     final jobsText = jobsCount != null
-        ? '$jobsCount Job${jobsCount == 1 ? '' : 's'}'
-        : '0 Jobs';
+      ? '$jobsCount Job${jobsCount == 1 ? '' : 's'}'
+      : 'Jobs -';
+    final pricePerHour = priceValue is num
+      ? priceValue.toDouble()
+      : double.tryParse(priceValue?.toString() ?? '');
+    final earnings = (pricePerHour != null && jobsCount != null)
+      ? pricePerHour * jobsCount
+      : null;
+    final earningsText = earnings != null
+      ? 'PKR ${earnings.toStringAsFixed(0)}'
+      : 'PKR -';
+    final availabilityText = availabilityValue == true
+      ? 'Available'
+      : availabilityValue == false
+        ? 'Unavailable'
+        : 'Availability -';
+    final skillsText = (skillsValue ?? '').toString().trim().isNotEmpty
+      ? (skillsValue ?? '').toString().trim()
+      : 'Skills not set';
+    final statusText = _formatStatus(verificationStatus?.toString());
+
+    final activities = _buildActivities(
+      jobsCount: jobsCount,
+      ratingValue: ratingValue,
+      statusText: statusText,
+      pricePerHour: pricePerHour,
+    );
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -89,7 +143,7 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
             children: [
               _DashboardHeader(
                 providerName: providerName,
-                profileImageUrl: null,
+                profileImageUrl: profileImageUrl,
               ),
 
               const SizedBox(height: 18),
@@ -117,17 +171,21 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
                           ),
                         ),
                       ),
-                    const _TodayBookingCard(),
+                    _ProviderSummaryCard(
+                      skillsText: skillsText,
+                      availabilityText: availabilityText,
+                      experienceYears: _provider?['experience'],
+                    ),
 
                     const SizedBox(height: 18),
 
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: _InfoCard(
                             icon: Icons.account_balance_wallet_rounded,
                             title: 'Total Earnings',
-                            value: 'PKR 460',
+                            value: earningsText,
                             iconColor: Colors.green,
                           ),
                         ),
@@ -156,11 +214,11 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: _InfoCard(
                             icon: Icons.verified_rounded,
-                            title: 'Certificates',
-                            value: 'Manage',
+                            title: 'Verification',
+                            value: statusText,
                             iconColor: Colors.purple,
                           ),
                         ),
@@ -254,19 +312,31 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
 
                     const SizedBox(height: 12),
 
-                    const _ActivityCard(
-                      icon: Icons.check_circle_rounded,
-                      title: 'Painting job completed',
-                      subtitle: 'You completed 1 job successfully.',
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    const _ActivityCard(
-                      icon: Icons.payments_rounded,
-                      title: 'Payment received',
-                      subtitle: 'PKR 460 added to your earnings.',
-                    ),
+                    if (activities.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          'No recent activity yet.',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      )
+                    else
+                      ...activities
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _ActivityCard(
+                                icon: item.icon,
+                                title: item.title,
+                                subtitle: item.subtitle,
+                              ),
+                            ),
+                          )
+                          .toList(),
                   ],
                 ),
               ),
@@ -275,6 +345,74 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
         ),
       ),
     );
+  }
+
+  String _formatStatus(String? status) {
+    switch (status) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      case 'pending':
+        return 'Pending';
+      default:
+        return 'Status -';
+    }
+  }
+
+  List<_ActivityData> _buildActivities({
+    required int? jobsCount,
+    required dynamic ratingValue,
+    required String statusText,
+    required double? pricePerHour,
+  }) {
+    final items = <_ActivityData>[];
+
+    if (jobsCount != null) {
+      items.add(
+        _ActivityData(
+          icon: Icons.check_circle_rounded,
+          title: 'Jobs completed',
+          subtitle: 'You have completed $jobsCount job(s).',
+        ),
+      );
+    }
+
+    final ratingNumber = ratingValue is num
+        ? ratingValue.toDouble()
+        : double.tryParse(ratingValue?.toString() ?? '');
+
+    if (ratingNumber != null) {
+      items.add(
+        _ActivityData(
+          icon: Icons.star_rounded,
+          title: 'Current rating',
+          subtitle: 'Your rating is ${ratingNumber.toStringAsFixed(1)}.',
+        ),
+      );
+    }
+
+    if (statusText != 'Status -') {
+      items.add(
+        _ActivityData(
+          icon: Icons.verified_rounded,
+          title: 'Verification status',
+          subtitle: 'Status: $statusText',
+        ),
+      );
+    }
+
+    if (pricePerHour != null) {
+      items.add(
+        _ActivityData(
+          icon: Icons.payments_rounded,
+          title: 'Hourly rate',
+          subtitle: 'You charge PKR ${pricePerHour.toStringAsFixed(0)} per hour.',
+        ),
+      );
+    }
+
+    return items;
   }
 }
 
@@ -411,11 +549,23 @@ class _DashboardHeader extends StatelessWidget {
   }
 }
 
-class _TodayBookingCard extends StatelessWidget {
-  const _TodayBookingCard();
+class _ProviderSummaryCard extends StatelessWidget {
+  const _ProviderSummaryCard({
+    required this.skillsText,
+    required this.availabilityText,
+    required this.experienceYears,
+  });
+
+  final String skillsText;
+  final String availabilityText;
+  final dynamic experienceYears;
 
   @override
   Widget build(BuildContext context) {
+    final expValue = experienceYears is num
+        ? (experienceYears as num).toInt()
+        : null;
+    final expText = expValue != null ? '$expValue years experience' : 'Experience -';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -451,9 +601,9 @@ class _TodayBookingCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Today's Booking",
+              children: [
+                const Text(
+                  'Provider Snapshot',
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 16,
@@ -461,20 +611,22 @@ class _TodayBookingCard extends StatelessWidget {
                     fontFamily: 'Poppins',
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Painter',
-                  style: TextStyle(
+                  skillsText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  '2/06/2025 at 10:20 AM',
-                  style: TextStyle(
+                  '$availabilityText • $expText',
+                  style: const TextStyle(
                     color: Colors.black54,
                     fontSize: 12,
                     fontFamily: 'Poppins',
@@ -712,4 +864,16 @@ class _ActivityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ActivityData {
+  const _ActivityData({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
 }
