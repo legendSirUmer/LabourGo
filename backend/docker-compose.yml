@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────────
+  db:
+    image: postgres:15
+    container_name: labourgo_db
+    environment:
+      POSTGRES_DB: labourgo
+      POSTGRES_USER: labourgo_user
+      POSTGRES_PASSWORD: labourgo_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # ── Django Backend ───────────────────────────────
+  web:
+    build: .
+    container_name: labourgo_web
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=docker-secret-key-change-in-production
+      - DEBUG=True
+      - DATABASE_URL=postgresql://labourgo_user:labourgo_pass@db:5432/labourgo
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
