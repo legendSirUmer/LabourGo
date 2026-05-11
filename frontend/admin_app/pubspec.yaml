@@ -1,0 +1,41 @@
+name: admin_app
+description: LabourGo Admin Dashboard
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP requests to Django backend
+  http: ^1.2.0
+
+  # Save login token locally
+  shared_preferences: ^2.2.2
+
+  # Better state management
+  provider: ^6.1.1
+
+  # Navigation
+  go_router: ^13.2.0
+
+  # Icons
+  flutter_svg: ^2.0.9
+
+  # Charts for reports
+  fl_chart: ^0.66.2
+
+  # Loading indicators
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
