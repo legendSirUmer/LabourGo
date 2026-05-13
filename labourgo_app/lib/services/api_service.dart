@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const String baseUrl = "http://127.0.0.1:8000/api";
 
   static String get _apiRoot {
     if (baseUrl.endsWith('/api/')) {
@@ -32,9 +32,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load providers (${response.statusCode}).',
-      );
+      throw Exception('Failed to load providers (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -46,9 +44,7 @@ class ApiService {
       throw Exception('Unexpected response from server');
     }
 
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   static Future<List<Map<String, dynamic>>> fetchServiceCategories() async {
@@ -58,9 +54,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load categories (${response.statusCode}).',
-      );
+      throw Exception('Failed to load categories (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -72,9 +66,7 @@ class ApiService {
       throw Exception('Unexpected response from server');
     }
 
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   static Future<List<Map<String, dynamic>>> fetchCities() async {
@@ -84,9 +76,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load cities (${response.statusCode}).',
-      );
+      throw Exception('Failed to load cities (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -98,9 +88,7 @@ class ApiService {
       throw Exception('Unexpected response from server');
     }
 
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   static Future<Map<String, dynamic>?> findProviderByEmailPhone(
@@ -112,10 +100,14 @@ class ApiService {
     final normalizedPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
     for (final item in providers) {
-      final providerEmail =
-          (item['email'] ?? '').toString().trim().toLowerCase();
-      final providerPhone =
-          (item['phone'] ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '');
+      final providerEmail = (item['email'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final providerPhone = (item['phone'] ?? '').toString().replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
 
       if (providerEmail == normalizedEmail &&
           providerPhone == normalizedPhone) {
@@ -145,9 +137,7 @@ class ApiService {
     });
 
     if (image != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath('image', image.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('image', image.path));
     }
 
     final response = await request.send();
@@ -174,9 +164,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load provider (${response.statusCode}).',
-      );
+      throw Exception('Failed to load provider (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -219,9 +207,7 @@ class ApiService {
       Uri.parse("$baseUrl/providers/$providerId/"),
     );
 
-    request.files.add(
-      await http.MultipartFile.fromPath('image', image.path),
-    );
+    request.files.add(await http.MultipartFile.fromPath('image', image.path));
 
     final response = await request.send();
     final body = await response.stream.bytesToString();
@@ -246,9 +232,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load certificates (${response.statusCode}).',
-      );
+      throw Exception('Failed to load certificates (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -260,9 +244,7 @@ class ApiService {
       throw Exception('Unexpected response from server');
     }
 
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   static Future<Map<String, dynamic>> createProviderCertificate(
@@ -279,9 +261,7 @@ class ApiService {
       request.fields[key] = value;
     });
 
-    request.files.add(
-      await http.MultipartFile.fromPath('image', image.path),
-    );
+    request.files.add(await http.MultipartFile.fromPath('image', image.path));
 
     final response = await request.send();
     final body = await response.stream.bytesToString();
@@ -320,9 +300,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to load performance (${response.statusCode}).',
-      );
+      throw Exception('Failed to load performance (${response.statusCode}).');
     }
 
     if (response.body.isEmpty) {
@@ -332,9 +310,7 @@ class ApiService {
     return _decodeMap(response.body);
   }
 
-  static Future<Map<String, dynamic>> toggleAvailability(
-    int providerId,
-  ) async {
+  static Future<Map<String, dynamic>> toggleAvailability(int providerId) async {
     final response = await http.post(
       Uri.parse("$baseUrl/providers/$providerId/toggle_availability/"),
       headers: const {'Accept': 'application/json'},
@@ -360,10 +336,7 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    return _postJson('/auth/login/', {
-      'email': email,
-      'password': password,
-    });
+    return _postJson('/auth/login/', {'email': email, 'password': password});
   }
 
   // =========================
@@ -395,9 +368,7 @@ class ApiService {
     String? email,
     String? fullName,
   }) async {
-    return {
-      'error': 'Social login is not configured yet.'
-    };
+    return {'error': 'Social login is not configured yet.'};
   }
 
   // =========================

@@ -21,8 +21,8 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')
 
 # Prefer DJANGO_DEBUG to avoid collisions with global DEBUG env vars.
-DEBUG = _env_bool('DJANGO_DEBUG', _env_bool('DEBUG', False))
-
+#DEBUG = _env_bool('DJANGO_DEBUG', _env_bool('DEBUG', False))
+DEBUG = True  # We'll set this via env vars in production
 ALLOWED_HOSTS = ['*']  # We'll restrict this in production
 
 # ─── Apps ───────────────────────────────────────────────
@@ -120,6 +120,8 @@ USE_TZ = True
 
 # ─── Static & Media Files ────────────────────────────────
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
