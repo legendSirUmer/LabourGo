@@ -89,9 +89,6 @@ class BookingStatusUpdateView(APIView):
     """
     PATCH /api/bookings/<id>/update/
     Provider updates booking status.
-    Valid transitions:
-      pending → accepted → in_progress → completed
-      any     → cancelled
     """
     permission_classes = [IsAuthenticated]
 
@@ -103,15 +100,22 @@ class BookingStatusUpdateView(APIView):
         'cancelled':   [],
     }
 
-    def patch(self, request, pk):
+    def patch(self, request, pk):   # <-- must be indented inside the class
         booking = get_object_or_404(Booking, id=pk)
         new_status = request.data.get('status')
 
-        if request.user != booking.provider:
-            return Response(
-                {'error': 'Only the assigned provider can update this booking.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        if new_status == 'completed':
+            if request.user != booking.customer:
+                return Response(
+                    {'error': 'Only the customer can mark a job as completed.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            if request.user != booking.provider:
+                return Response(
+                    {'error': 'Only the assigned provider can update this booking.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         allowed = self.VALID_TRANSITIONS.get(booking.status, [])
         if new_status not in allowed:
@@ -125,6 +129,25 @@ class BookingStatusUpdateView(APIView):
 
         booking.status = new_status
         booking.save()
+
+# ── UPDATE PROVIDER JOBS COUNT ──
+        if new_status == 'completed' and booking.provider:
+            try:
+                from providers.models import Provider
+                from bookings.models import Booking
+                provider = Provider.objects.filter(
+                    email__iexact=booking.provider.email
+                ).first()
+                if provider:
+                    provider.jobs_completed = Booking.objects.filter(
+                        provider=booking.provider,
+                        status='completed'
+                    ).count()
+                    provider.save()
+            except Exception as e:
+                print(f'Jobs update error: {e}')
+# ── END UPDATE ──
+
         return Response({
             'message': f'Booking status updated to "{new_status}".',
             'booking': BookingSerializer(booking).data,

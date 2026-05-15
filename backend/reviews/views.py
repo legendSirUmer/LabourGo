@@ -12,10 +12,6 @@ User = get_user_model()
 
 
 class ReviewCreateView(APIView):
-    """
-    POST /api/reviews/create/
-    Customer submits a review for a completed booking.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -31,6 +27,33 @@ class ReviewCreateView(APIView):
         )
         if serializer.is_valid():
             review = serializer.save()
+
+            # ── UPDATE PROVIDER RATING ──
+            try:
+                from providers.models import Provider
+                booking = review.booking
+                if booking and booking.provider:
+                    provider = Provider.objects.filter(
+                        email__iexact=booking.provider.email
+                    ).first()
+                    if provider:
+                        avg = Review.objects.filter(
+                            booking__provider=booking.provider
+                        ).aggregate(Avg('rating'))['rating__avg']
+                        provider.rating = round(avg, 2) if avg else 0
+
+                        # also update jobs_completed
+                        from bookings.models import Booking
+                        provider.jobs_completed = Booking.objects.filter(
+                            provider=booking.provider,
+                            status='completed'
+                        ).count()
+
+                        provider.save()
+            except Exception as e:
+                print(f'Provider update error: {e}')
+            # ── END UPDATE ──
+
             return Response({
                 'message': 'Review submitted successfully!',
                 'review':  ReviewSerializer(review).data,
@@ -40,12 +63,6 @@ class ReviewCreateView(APIView):
 
 
 class ProviderReviewsView(generics.ListAPIView):
-    """
-    GET /api/reviews/provider/<provider_id>/
-    Lists all reviews for a specific provider.
-    Also returns their average rating.
-    Public — customers browse this before booking.
-    """
     permission_classes = [IsAuthenticated]
     serializer_class   = ReviewSerializer
 
@@ -67,10 +84,6 @@ class ProviderReviewsView(generics.ListAPIView):
 
 
 class MyReviewsView(generics.ListAPIView):
-    """
-    GET /api/reviews/my-reviews/
-    Customer sees all reviews they have written.
-    """
     permission_classes = [IsAuthenticated]
     serializer_class   = ReviewSerializer
 

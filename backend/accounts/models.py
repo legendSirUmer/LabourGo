@@ -41,6 +41,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     google_sub   = models.CharField(max_length=255, blank=True, null=True, unique=True)
     apple_sub    = models.CharField(max_length=255, blank=True, null=True, unique=True)
     facebook_id  = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    two_factor_enabled = models.BooleanField(default=False)
+    two_factor_secret = models.CharField(max_length=64, blank=True)
     is_active    = models.BooleanField(default=True)
     is_staff     = models.BooleanField(default=False)
     created_at   = models.DateTimeField(auto_now_add=True)

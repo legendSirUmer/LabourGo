@@ -100,10 +100,42 @@ class ProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def performance(self, request, pk=None):
         provider = self.get_object()
+
+        from reviews.models import Review
+        from bookings.models import Booking
+        from django.db.models import Avg
+
+    # Get all reviews for this provider's user account
+        reviews = Review.objects.filter(
+            booking__provider__email__iexact=provider.email
+        )
+
+        avg = reviews.aggregate(Avg('rating'))['rating__avg']
+        jobs_count = Booking.objects.filter(
+            provider__email__iexact=provider.email,
+            status='completed'
+        ).count()
+
+    # Also update provider model while we're here
+        provider.rating = round(avg, 2) if avg else 0
+        provider.jobs_completed = jobs_count
+        provider.save()
+
+        reviews_data = [
+        {
+            'rating': r.rating,
+            'comment': r.comment,
+            'customer_name': r.customer.full_name if r.customer else 'Customer',
+            'date': r.created_at.strftime('%b %d, %Y') if hasattr(r, 'created_at') else '',
+        }
+        for r in reviews
+         ]
+
         return Response({
-            "rating": provider.rating,
-            "jobs_completed": provider.jobs_completed
-        })
+        'rating': provider.rating,
+        'jobs_completed': provider.jobs_completed,
+        'reviews': reviews_data,
+    })
     @action(detail=True, methods=['post'])
     def toggle_availability(self, request, pk=None):
         provider = self.get_object()
