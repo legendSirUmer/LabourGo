@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,7 +43,8 @@ class _CertificateScreenState extends State<CertificateScreen>
   String? _statusText;
   String? _selectedSkill;
   String _selectedFileName = 'No file selected';
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
   int? _providerId;
 
   final List<String> _profileSkills = [];
@@ -285,11 +286,12 @@ class _CertificateScreenState extends State<CertificateScreen>
       );
 
       if (picked == null || !mounted) return;
-
-      final file = File(picked.path);
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
       setState(() {
-        _selectedImage = file;
+        _selectedImageBytes = bytes;
         _selectedFileName = picked.name;
+        _selectedImageName = picked.name;
       });
     } catch (e) {
       if (!mounted) return;
@@ -303,7 +305,7 @@ class _CertificateScreenState extends State<CertificateScreen>
       _showSnack('Select a skill first', isError: true);
       return;
     }
-    if (_selectedImage == null) {
+    if (_selectedImageBytes == null) {
       _showSnack('Please choose a certificate image', isError: true);
       return;
     }
@@ -326,7 +328,8 @@ class _CertificateScreenState extends State<CertificateScreen>
           'issue_date': _issueDateController.text.trim(),
           'expiration_date': _expiryDateController.text.trim(),
         },
-        image: _selectedImage!,
+        imageBytes: _selectedImageBytes!,
+        imageName: _selectedImageName,
       );
 
       if (!mounted) return;
@@ -338,7 +341,8 @@ class _CertificateScreenState extends State<CertificateScreen>
         _issueDateController.clear();
         _expiryDateController.clear();
         _selectedFileName = 'No file selected';
-        _selectedImage = null;
+        _selectedImageBytes = null;
+        _selectedImageName = null;
         if (_profileSkills.isNotEmpty) {
           _selectedSkill = _profileSkills.first;
         }
@@ -789,11 +793,11 @@ class _CertificateScreenState extends State<CertificateScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _selectedImage != null
+                  _selectedImageBytes != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            _selectedImage!,
+                          child: Image.memory(
+                            _selectedImageBytes!,
                             width: 56,
                             height: 56,
                             fit: BoxFit.cover,
@@ -834,7 +838,7 @@ class _CertificateScreenState extends State<CertificateScreen>
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (_selectedImage == null) ...[
+                        if (_selectedImageBytes == null) ...[
                           const SizedBox(height: 4),
                           const Text(
                             'Choose a clear certificate image',

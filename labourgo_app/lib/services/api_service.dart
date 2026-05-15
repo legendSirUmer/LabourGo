@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
@@ -285,37 +285,42 @@ class ApiService {
         .toList(growable: false);
   }
 
-  static Future<Map<String, dynamic>> createProviderCertificate(
-    int providerId, {
-    required Map<String, String> data,
-    required File image,
-  }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse("$baseUrl/providers/$providerId/certificates/"),
-    );
+ static Future<Map<String, dynamic>> createProviderCertificate(
+  int providerId, {
+  required Map<String, String> data,
+  required Uint8List imageBytes,
+  String? imageName,
+}) async {
+  final request = http.MultipartRequest(
+    'POST',
+    Uri.parse("$baseUrl/providers/$providerId/certificates/"),
+  );
 
-    data.forEach((key, value) {
-      request.fields[key] = value;
-    });
+  data.forEach((key, value) {
+    request.fields[key] = value;
+  });
 
-    request.files.add(
-      await http.MultipartFile.fromPath('image', image.path),
-    );
+  request.files.add(
+    http.MultipartFile.fromBytes(
+      'image',
+      imageBytes,
+      filename: imageName ?? 'certificate.jpg',
+    ),
+  );
 
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
+  final response = await request.send();
+  final body = await response.stream.bytesToString();
 
-    if (response.statusCode != 201) {
-      throw Exception(_formatError(body, response.statusCode));
-    }
-
-    if (body.isEmpty) {
-      return {};
-    }
-
-    return _decodeMap(body);
+  if (response.statusCode != 201) {
+    throw Exception(_formatError(body, response.statusCode));
   }
+
+  if (body.isEmpty) {
+    return {};
+  }
+
+  return _decodeMap(body);
+}
 
   static Future<void> deleteProviderCertificate(
     int providerId,
@@ -575,8 +580,8 @@ static Future<Map<String, String>> _authHeaders() async {
     return jsonDecode(response.body);
   }
 
-  static Future<List<dynamic>> getMyBookings() async {
-    final response = await http.get(
+static Future<List<Map<String, dynamic>>> getMyBookings() async {
+      final response = await http.get(
       Uri.parse('$baseUrl/bookings/my-bookings/'),
       headers: await _authHeaders(),
     );

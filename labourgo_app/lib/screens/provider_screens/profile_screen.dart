@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,7 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _availabilitySaving = false;
   String? _error;
   String? _imageUrl;
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
   int? _providerId;
   bool _isAvailable = false;
 
@@ -121,7 +122,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         phoneController.text = (data['phone'] ?? '').toString();
         emailController.text = (data['email'] ?? '').toString();
         _imageUrl = ApiService.resolveImageUrl(data['image']?.toString());
-        _selectedImage = null;
+        _selectedImageBytes = null;
+        _selectedImageName = null;
         _isAvailable = _parseAvailability(data['availability']);
       });
       _fadeCtrl?.forward();
@@ -298,17 +300,20 @@ class _ProfileScreenState extends State<ProfileScreen>
       );
 
       if (picked == null) return;
-      final file = File(picked.path);
-
-      setState(() => _selectedImage = file);
-      await _uploadImage(file);
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _selectedImageBytes = bytes;
+        _selectedImageName = picked.name;
+      });
+      await _uploadImage(bytes, picked.name);
     } catch (e) {
       if (!mounted) return;
       _showSnack('Could not pick image: $e', isError: true);
     }
   }
 
-  Future<void> _uploadImage(File file) async {
+  Future<void> _uploadImage(Uint8List bytes, String? name) async {
     if (_providerId == null) {
       _showSnack('Provider not found', isError: true);
       return;
@@ -316,14 +321,19 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     setState(() => _imageUploading = true);
     try {
-      final data = await ApiService.updateProviderImage(_providerId!, file);
+      final data = await ApiService.updateProviderImage(
+        _providerId!,
+        imageBytes: bytes,
+        imageName: name,
+      );
       final updatedPath = data['image']?.toString();
       final resolved = ApiService.resolveImageUrl(updatedPath);
 
       setState(() {
         if (resolved != null && resolved.isNotEmpty) {
           _imageUrl = resolved;
-          _selectedImage = null;
+          _selectedImageBytes = null;
+          _selectedImageName = null;
         }
       });
 
@@ -784,9 +794,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildAvatar() {
-    if (_selectedImage != null) {
-      return Image.file(
-        _selectedImage!,
+    if (_selectedImageBytes != null) {
+      return Image.memory(
+        _selectedImageBytes!,
         fit: BoxFit.cover,
         width: 92,
         height: 92,

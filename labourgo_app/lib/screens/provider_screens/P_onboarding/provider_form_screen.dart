@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -35,7 +35,8 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
   final _picker = ImagePicker();
 
   // Profile image
-  File? _profileImage;
+  Uint8List? _profileImageBytes;
+  String? _profileImageName;
 
   // Selectors
   String workType = "Select Work Type";
@@ -100,7 +101,12 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
         maxWidth: 800,
       );
       if (picked != null) {
-        setState(() => _profileImage = File(picked.path));
+        final bytes = await picked.readAsBytes();
+        if (!mounted) return;
+        setState(() {
+          _profileImageBytes = bytes;
+          _profileImageName = picked.name;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -217,11 +223,14 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
             ),
             const SizedBox(height: 16),
             // Remove photo (only if image selected)
-            if (_profileImage != null)
+            if (_profileImageBytes != null)
               GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
-                  setState(() => _profileImage = null);
+                  setState(() {
+                    _profileImageBytes = null;
+                    _profileImageName = null;
+                  });
                 },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -258,7 +267,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
     return;
   }
 
-  if (_profileImage == null) {
+  if (_profileImageBytes == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Please upload a profile photo")),
     );
@@ -298,7 +307,8 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
         "experience": experienceYears,
         "price_per_hour": priceValue,
       },
-      image: _profileImage,
+      imageBytes: _profileImageBytes,
+      imageName: _profileImageName,
     );
 
     // ✅ IMPORTANT FIX — SAVE USER DATA
@@ -452,19 +462,20 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                             shape: BoxShape.circle,
                             color: _kBlue.withOpacity(0.08),
                             border: Border.all(
-                              color: _profileImage != null
+                              color: _profileImageBytes != null
                                   ? _kBlue
                                   : _kBorder,
                               width: 2,
                             ),
-                            image: _profileImage != null
+                            image: _profileImageBytes != null
                                 ? DecorationImage(
-                                    image: FileImage(_profileImage!),
+                                    image:
+                                        MemoryImage(_profileImageBytes!),
                                     fit: BoxFit.cover,
                                   )
                                 : null,
                           ),
-                          child: _profileImage == null
+                          child: _profileImageBytes == null
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -497,13 +508,13 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _profileImage != null
+                    _profileImageBytes != null
                         ? 'Tap to change photo'
                         : 'Upload Profile Photo',
                     style: TextStyle(
                       fontSize: 12,
-                      color: _profileImage != null ? _kBlue : _kSubText,
-                      fontWeight: _profileImage != null
+                      color: _profileImageBytes != null ? _kBlue : _kSubText,
+                      fontWeight: _profileImageBytes != null
                           ? FontWeight.w600
                           : FontWeight.w400,
                       fontFamily: 'Poppins',

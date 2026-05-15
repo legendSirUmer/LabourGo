@@ -7,11 +7,14 @@ import 'package:confetti/confetti.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../provider_screens/P_onboarding/provider_intro_screen.dart';
+import '../profile/edit_profile_screen.dart';
 import 'my_bookings_screen.dart';
 import 'create_booking_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialTab;
+  const HomeScreen({super.key, this.initialTab = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _categories = [];
   List<dynamic> _providers = [];
   List<dynamic> _payments = [];
+  Map<String, dynamic>? _profile;
   bool _loading = true;
   bool _paymentsLoading = true;
   String? _paymentsError;
@@ -32,6 +36,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTab >= 0 && widget.initialTab <= 3) {
+      _navIndex = widget.initialTab;
+    }
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
@@ -49,7 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _categories = results[0] as List;
         _providers = results[1] as List;
-        _userName = (results[2] as Map)['full_name'] ?? 'User';
+        _profile = results[2] as Map<String, dynamic>;
+        _userName = _profile?['full_name'] ?? 'User';
         _payments = results[3] as List;
         _loading = false;
         _paymentsLoading = false;
@@ -158,6 +166,74 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openProviderIntro() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProviderIntroScreen()),
+    );
+  }
+
+  Future<void> _openEditProfile() async {
+    Map<String, dynamic>? profile = _profile;
+    if (profile == null) {
+      try {
+        profile = await ApiService.getProfile();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load profile.')),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(initialProfile: profile!),
+      ),
+    );
+    if (result == true) {
+      _loadData();
+    }
+  }
+
+  void _openBookingsTab() {
+    setState(() {
+      if (_navIndex != 1) {
+        _bookingsRefreshToken++;
+      }
+      _navIndex = 1;
+    });
+  }
+
+  void _openPaymentsTab() {
+    setState(() {
+      _navIndex = 2;
+    });
+  }
+
+  void _openHelpSupport() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Help & Support',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        content: const Text('Support is not available yet. Please try again later.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -1188,10 +1264,19 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 32),
-            _profileTile(Icons.person_outlined, 'Edit Profile', () {}),
-            _profileTile(Icons.history_rounded, 'Booking History', () {}),
-            _profileTile(Icons.payment_rounded, 'Payment History', () {}),
-            _profileTile(Icons.help_outline_rounded, 'Help & Support', () {}),
+            _profileTile(
+              Icons.person_outlined,
+              'Edit Profile',
+              () => _openEditProfile(),
+            ),
+            _profileTile(Icons.history_rounded, 'Booking History', _openBookingsTab),
+            _profileTile(Icons.payment_rounded, 'Payment History', _openPaymentsTab),
+            _profileTile(Icons.help_outline_rounded, 'Help & Support', _openHelpSupport),
+            _profileTile(
+              Icons.engineering_rounded,
+              'Provider Area',
+              _openProviderIntro,
+            ),
             const SizedBox(height: 16),
             _profileTile(
               Icons.logout_rounded,
@@ -1248,10 +1333,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── BOTTOM NAV ───────────────────────────────────────
   Widget _buildBottomNav() {
     final items = [
-      {'icon': Icons.home_rounded, 'label': 'Home'},
-      {'icon': Icons.calendar_month_rounded, 'label': 'Bookings'},
-      {'icon': Icons.payment_rounded, 'label': 'Payments'},
-      {'icon': Icons.person_rounded, 'label': 'Profile'},
+      {'icon': Icons.home_rounded, 'label': 'Home', 'navIndex': 0},
+      {'icon': Icons.calendar_month_rounded, 'label': 'Bookings', 'navIndex': 1},
+      {'icon': Icons.payment_rounded, 'label': 'Payments', 'navIndex': 2},
+      {
+        'icon': Icons.engineering_rounded,
+        'label': 'Provider',
+        'action': _openProviderIntro,
+      },
+      {'icon': Icons.person_rounded, 'label': 'Profile', 'navIndex': 3},
     ];
 
     return Container(
@@ -1274,16 +1364,23 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(items.length, (index) {
           final item = items[index];
-          final active = index == _navIndex;
+          final navIndex = item['navIndex'] as int?;
+          final action = item['action'] as VoidCallback?;
+          final active = navIndex != null && navIndex == _navIndex;
           return Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
+                if (action != null) {
+                  action();
+                  return;
+                }
+                if (navIndex == null) return;
                 setState(() {
-                  if (index == 1 && _navIndex != 1) {
+                  if (navIndex == 1 && _navIndex != 1) {
                     _bookingsRefreshToken++;
                   }
-                  _navIndex = index;
+                  _navIndex = navIndex;
                 });
               },
               child: Column(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../provider_screens/P_onboarding/provider_intro_screen.dart';
+import '../bookings/my_bookings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notifications_screen.dart';
 import 'settings_screen.dart';
@@ -70,6 +72,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _openProviderIntro() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProviderIntroScreen()),
     );
   }
 
@@ -175,8 +184,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.history_rounded,
             title: 'My Bookings',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select the Bookings tab from the bottom menu.')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyBookingsScreen()),
               );
             },
           ),
@@ -186,6 +196,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
+          ),
+          _buildOptionTile(
+            icon: Icons.engineering_rounded,
+            title: 'Provider Area',
+            onTap: _openProviderIntro,
           ),
 
           const SizedBox(height: 40),

@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,6 +8,36 @@ from django.db import transaction
 
 from .models import Provider, ProviderCertificate
 from .serializers import ProviderCertificateSerializer, ProviderSerializer
+from bookings.models import ServiceCategory
+
+
+def _parse_skills(raw_skills):
+    if raw_skills is None:
+        return []
+    if isinstance(raw_skills, (list, tuple)):
+        items = raw_skills
+    else:
+        items = re.split(r'[,;/\n]+', str(raw_skills))
+
+    skills = []
+    seen = set()
+    for item in items:
+        name = ' '.join(str(item).split()).strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        skills.append(name)
+    return skills
+
+
+def _ensure_service_categories(skills_value):
+    for name in _parse_skills(skills_value):
+        if ServiceCategory.objects.filter(name__iexact=name).exists():
+            continue
+        ServiceCategory.objects.create(name=name)
 
 
 class ProviderViewSet(viewsets.ModelViewSet):
@@ -13,10 +45,16 @@ class ProviderViewSet(viewsets.ModelViewSet):
     serializer_class = ProviderSerializer
 
     @transaction.atomic
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        _ensure_service_categories(instance.skills)
+
+    @transaction.atomic
     def perform_update(self, serializer):
         instance = self.get_object()
         old_email = (instance.email or '').strip()
         instance = serializer.save()
+        _ensure_service_categories(instance.skills)
 
         new_email = (instance.email or '').strip()
         new_name = (instance.name or '').strip()

@@ -57,7 +57,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
     });
 
     try {
-      final data = await ApiService.fetchMyBookings();
+      final data = await ApiService.getMyBookings();
       if (!mounted) return;
       setState(() {
         _bookings
