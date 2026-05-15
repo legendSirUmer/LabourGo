@@ -5,7 +5,6 @@ import '../../services/social_auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/error_banner.dart';
-import '../customer_dashboard_temp.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,10 +15,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailCtrl    = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _loading       = false;
-  bool _obscure       = true;
+  bool _loading = false;
+  bool _obscure = true;
   String? _error;
   bool _hoverSignIn = false;
   bool _hoverCreate = false;
@@ -49,15 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString('user_email', email);
     }
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const CustomerDashboardTemp(),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   Future<void> _socialLogin(Future<SocialAuthPayload> Function() signIn) async {
@@ -95,10 +86,13 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Please enter your email and password.');
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final result = await ApiService.login(
-        email:    _emailCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text.trim(),
       );
       if (result.containsKey('tokens')) {
@@ -107,7 +101,9 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _error = result['error'] ?? 'Login failed. Try again.');
       }
     } catch (e) {
-      setState(() => _error = 'Cannot connect to server. Check your connection.');
+      setState(
+        () => _error = 'Cannot connect to server. Check your connection.',
+      );
     } finally {
       setState(() => _loading = false);
     }
@@ -117,9 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.primaryGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -171,9 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.6),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.6)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
@@ -319,8 +311,11 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: InputDecoration(
         hintText: '••••••••',
         hintStyle: TextStyle(color: Colors.black45),
-        prefixIcon:
-            const Icon(Icons.lock_outline, color: Colors.black54, size: 20),
+        prefixIcon: const Icon(
+          Icons.lock_outline,
+          color: Colors.black54,
+          size: 20,
+        ),
         suffixIcon: IconButton(
           icon: Icon(
             _obscure
@@ -357,10 +352,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'OR',
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Colors.black54, fontSize: 13),
           ),
         ),
         Expanded(child: Divider(color: Colors.black.withOpacity(0.2))),
@@ -386,11 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(width: 16),
         _SocialCircleButton(
           semanticLabel: 'Continue with Apple',
-          icon: const Icon(
-            Icons.apple,
-            size: 24,
-            color: Colors.black,
-          ),
+          icon: const Icon(Icons.apple, size: 24, color: Colors.black),
           onPressed: _loading
               ? null
               : () => _socialLogin(SocialAuthService.signInWithApple),
@@ -398,11 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(width: 16),
         _SocialCircleButton(
           semanticLabel: 'Continue with Facebook',
-          icon: const Icon(
-            Icons.facebook,
-            size: 22,
-            color: Color(0xFF1877F2),
-          ),
+          icon: const Icon(Icons.facebook, size: 22, color: Color(0xFF1877F2)),
           onPressed: _loading
               ? null
               : () => _socialLogin(SocialAuthService.signInWithFacebook),
@@ -418,18 +402,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return RichText(
       text: TextSpan(
-        style: TextStyle(
-          color: Colors.black54,
-          fontSize: 13,
-        ),
+        style: TextStyle(color: Colors.black54, fontSize: 13),
         children: [
           TextSpan(text: prefix),
           WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
             child: _hoverable(
-              onHover: (value) =>
-                  setState(() => _hoverCreate = value),
+              onHover: (value) => setState(() => _hoverCreate = value),
               child: GestureDetector(
                 onTap: onPressed,
                 child: Text(
@@ -544,7 +524,9 @@ class _SocialCircleButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: disabled ? AppColors.border.withOpacity(0.6) : AppColors.border,
+                color: disabled
+                    ? AppColors.border.withOpacity(0.6)
+                    : AppColors.border,
                 width: 1.2,
               ),
             ),

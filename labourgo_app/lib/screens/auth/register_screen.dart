@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../customer_dashboard_temp.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_banner.dart';
 
@@ -14,12 +13,12 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl     = TextEditingController();
-  final _emailCtrl    = TextEditingController();
-  final _phoneCtrl    = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _loading       = false;
-  bool _obscure       = true;
+  bool _loading = false;
+  bool _obscure = true;
   String? _error;
   bool _hoverSignUp = false;
   bool _hoverLogin = false;
@@ -37,37 +36,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
       final result = await ApiService.register(
-        email:    _emailCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         fullName: _nameCtrl.text.trim(),
-        phone:    _phoneCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
         password: _passwordCtrl.text.trim(),
       );
 
       if (result.containsKey('tokens')) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('access_token',  result['tokens']['access']);
+        await prefs.setString('access_token', result['tokens']['access']);
         await prefs.setString('refresh_token', result['tokens']['refresh']);
         await prefs.setString('user_name', _nameCtrl.text.trim());
         await prefs.setString('user_email', _emailCtrl.text.trim());
         await prefs.setString('user_phone', _phoneCtrl.text.trim());
 
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const CustomerDashboardTemp()),
-          );
+          Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
         // Show first error from response
         final errors = result as Map;
         final firstError = errors.values.first;
-        setState(() => _error = firstError is List
-            ? firstError.first.toString()
-            : firstError.toString());
+        setState(
+          () => _error = firstError is List
+              ? firstError.first.toString()
+              : firstError.toString(),
+        );
       }
     } catch (e) {
       setState(() => _error = 'Cannot connect to server.');
@@ -80,9 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.primaryGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -136,9 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.85),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.6),
-                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.6)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.1),
@@ -195,8 +192,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           validator: (value) {
                             final v = value?.trim() ?? '';
                             if (v.isEmpty) return 'Email is required';
-                            if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$')
-                                .hasMatch(v)) {
+                            if (!RegExp(
+                              r'^[\w\.-]+@[\w\.-]+\.\w{2,}$',
+                            ).hasMatch(v)) {
                               return 'Enter a valid email address';
                             }
                             return null;
@@ -240,8 +238,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           decoration: InputDecoration(
                             hintText: '••••••••',
                             hintStyle: TextStyle(color: Colors.black45),
-                            prefixIcon: const Icon(Icons.lock_outlined,
-                                color: Colors.black54),
+                            prefixIcon: const Icon(
+                              Icons.lock_outlined,
+                              color: Colors.black54,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscure
@@ -256,17 +256,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide:
-                                  BorderSide(color: Colors.black.withOpacity(0.12)),
+                              borderSide: BorderSide(
+                                color: Colors.black.withOpacity(0.12),
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide:
-                                  BorderSide(color: Colors.black.withOpacity(0.12)),
+                              borderSide: BorderSide(
+                                color: Colors.black.withOpacity(0.12),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: Colors.black87),
+                              borderSide: const BorderSide(
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                         ),
@@ -306,15 +310,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontWeight: FontWeight.w500,
+        color: Colors.black87,
+      ),
+    ),
+  );
 
   Widget _buildField({
     required TextEditingController controller,
@@ -322,32 +326,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required IconData icon,
     TextInputType keyboard = TextInputType.text,
     String? Function(String?)? validator,
-  }) =>
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboard,
-        validator: validator,
-        style: const TextStyle(color: Colors.black87),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.black45),
-          prefixIcon: Icon(icon, color: Colors.black54),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Colors.black87),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-      );
+  }) => TextFormField(
+    controller: controller,
+    keyboardType: keyboard,
+    validator: validator,
+    style: const TextStyle(color: Colors.black87),
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.black45),
+      prefixIcon: Icon(icon, color: Colors.black54),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.black87),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+    ),
+  );
 
   Widget _authLink({
     required String prefix,
@@ -356,10 +359,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     return RichText(
       text: TextSpan(
-        style: TextStyle(
-          color: Colors.black54,
-          fontSize: 13,
-        ),
+        style: TextStyle(color: Colors.black54, fontSize: 13),
         children: [
           TextSpan(text: prefix),
           WidgetSpan(

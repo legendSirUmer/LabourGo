@@ -1,9 +1,36 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = "http://127.0.0.1:8000/api";
+
+  // ── Save token locally ───────────────────────────────────
+  static Future<void> saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('access_token', token);
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
+
+  static Future<void> clearToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
+  }
+
+  // ── Headers ──────────────────────────────────────────────
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await getToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
 
   static String get _apiRoot {
     if (baseUrl.endsWith('/api/')) {
@@ -89,6 +116,160 @@ class ApiService {
     }
 
     return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  static Future<List<dynamic>> getCategories() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/bookings/categories/'),
+      headers: const {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load categories (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    return json.decode(response.body) as List<dynamic>;
+  }
+
+  static Future<List<dynamic>> getProviders() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/providers/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load providers (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    return json.decode(response.body) as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> createBooking({
+    required int providerId,
+    required int categoryId,
+    required String description,
+    required String locationAddress,
+    required String scheduledDate,
+    required String scheduledTime,
+    required String priceOffered,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/bookings/create/'),
+      headers: await _authHeaders(),
+      body: json.encode({
+        'provider_id': providerId,
+        'category_id': categoryId,
+        'description': description,
+        'location_address': locationAddress,
+        'scheduled_date': scheduledDate,
+        'scheduled_time': scheduledTime,
+        'price_offered': priceOffered,
+      }),
+    );
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Failed to create booking (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<dynamic>> getMyBookings() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/bookings/my-bookings/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load bookings (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    return json.decode(response.body) as List<dynamic>;
+  }
+
+  static Future<List<dynamic>> getMyPayments() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/payments/my-payments/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load payments (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    return json.decode(response.body) as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> makePayment({
+    required int bookingId,
+    required String amount,
+    required String method,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/payments/pay/'),
+      headers: await _authHeaders(),
+      body: json.encode({
+        'booking_id': bookingId,
+        'amount': amount,
+        'method': method,
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to make payment (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> submitReview({
+    required int bookingId,
+    required int rating,
+    required String comment,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/reviews/create/'),
+      headers: await _authHeaders(),
+      body: json.encode({
+        'booking_id': bookingId,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to submit review (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>?> findProviderByEmailPhone(
@@ -369,6 +550,43 @@ class ApiService {
     String? fullName,
   }) async {
     return {'error': 'Social login is not configured yet.'};
+  }
+
+  static Future<Map<String, dynamic>> getProfile() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/profile/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load profile (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateProfile(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/auth/profile/'),
+      headers: await _authHeaders(),
+      body: json.encode(data),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update profile (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return {'status': 'success', 'message': 'Profile updated.'};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
   // =========================
