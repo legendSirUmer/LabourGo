@@ -176,3 +176,4 @@ def _verify_facebook(access_token: str) -> SocialUserInfo:
         email=me.get('email'),
         full_name=me.get('name'),
     )
+

@@ -4,10 +4,6 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-STATICFILES_FINDERS = [
-    "django.contrib.staticfiles.finders.FileSystemFinder",
-    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-]
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -25,8 +21,8 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')
 
 # Prefer DJANGO_DEBUG to avoid collisions with global DEBUG env vars.
-DEBUG = _env_bool('DJANGO_DEBUG', _env_bool('DEBUG', True))
-
+#DEBUG = _env_bool('DJANGO_DEBUG', _env_bool('DEBUG', False))
+DEBUG = True  # We'll set this via env vars in production
 ALLOWED_HOSTS = ['*']  # We'll restrict this in production
 
 # ─── Apps ───────────────────────────────────────────────
@@ -125,9 +121,6 @@ USE_TZ = True
 # ─── Static & Media Files ────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

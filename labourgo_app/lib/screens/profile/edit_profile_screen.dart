@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/cust_theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> initialProfile;
@@ -21,9 +21,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialProfile['full_name'] ?? '');
-    _emailController = TextEditingController(text: widget.initialProfile['email'] ?? '');
-    _phoneController = TextEditingController(text: widget.initialProfile['phone'] ?? '');
+    _nameController = TextEditingController(
+      text: widget.initialProfile['full_name'] ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.initialProfile['email'] ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: widget.initialProfile['phone'] ?? '',
+    );
   }
 
   @override
@@ -36,15 +42,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
-    
+
     try {
       await ApiService.updateProfile({
         'full_name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
@@ -53,9 +59,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -87,13 +93,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.primary, width: 2),
                     ),
                     child: Center(
                       child: Text(
-                        _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'U',
+                        _nameController.text.isNotEmpty
+                            ? _nameController.text[0].toUpperCase()
+                            : 'U',
                         style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 40,
@@ -108,30 +116,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 32),
-              
+
               // Fields
               _buildTextField(
                 controller: _nameController,
                 label: 'Full Name',
                 icon: Icons.person_outline_rounded,
-                validator: (val) => val == null || val.isEmpty ? 'Name cannot be empty' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Name cannot be empty' : null,
               ),
               const SizedBox(height: 16),
-              
+
               _buildTextField(
                 controller: _emailController,
                 label: 'Email Address',
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
-                enabled: false, 
+                enabled: false,
               ),
               const SizedBox(height: 16),
-              
+
               _buildTextField(
                 controller: _phoneController,
                 label: 'Phone Number',
@@ -139,7 +152,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 40),
-              
+
               // Action Buttons
               Row(
                 children: [
@@ -150,9 +163,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         foregroundColor: AppColors.textMuted,
                         side: const BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -163,12 +184,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                       child: _loading
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -193,7 +229,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       keyboardType: keyboardType,
       enabled: enabled,
       validator: validator,
-      style: TextStyle(color: enabled ? AppColors.textDark : AppColors.textMuted),
+      style: TextStyle(
+        color: enabled ? AppColors.textDark : AppColors.textMuted,
+      ),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: AppColors.textMuted),

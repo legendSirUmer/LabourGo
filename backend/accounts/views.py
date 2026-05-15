@@ -129,7 +129,7 @@ class ProviderListView(generics.ListAPIView):
     serializer_class   = UserProfileSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='providers', is_active=True)
+        return User.objects.filter(role='provider', is_active=True)
 
 
 class SocialLoginView(APIView):

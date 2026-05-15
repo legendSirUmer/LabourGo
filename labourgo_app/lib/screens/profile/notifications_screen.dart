@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/cust_theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -34,7 +34,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           children: [
             const Text(
               'Notification Preferences',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -42,7 +46,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               style: TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 24),
-            
+
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -54,7 +58,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   return Column(
                     children: [
                       SwitchListTile(
-                        title: Text(key, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+                        title: Text(
+                          key,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
+                        ),
                         value: _prefs[key]!,
                         activeThumbColor: AppColors.primary,
                         onChanged: (val) {
@@ -68,9 +78,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }).toList(),
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -81,11 +91,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
-                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: AppColors.error.withValues(alpha: 0.5),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Clear all notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Clear all notifications',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],

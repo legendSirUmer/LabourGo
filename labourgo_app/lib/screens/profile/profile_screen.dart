@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/cust_theme.dart';
 import '../auth/login_screen.dart';
-import '../provider_screens/P_onboarding/provider_intro_screen.dart';
-import '../bookings/my_bookings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notifications_screen.dart';
 import 'settings_screen.dart';
@@ -43,14 +41,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textMuted)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -66,7 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Logout'),
           ),
@@ -75,27 +78,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _openProviderIntro() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ProviderIntroScreen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: widget.embedded ? null : AppBar(
-        title: const Text('Profile'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('Profile'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : _profile == null
-              ? const Center(child: Text('Failed to load profile'))
-              : _buildBody(),
+          ? const Center(child: Text('Failed to load profile'))
+          : _buildBody(),
     );
   }
 
@@ -116,7 +116,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Center(
               child: Text(
-                _profile!['full_name'] != null && _profile!['full_name'].isNotEmpty
+                _profile!['full_name'] != null &&
+                        _profile!['full_name'].isNotEmpty
                     ? _profile!['full_name'][0].toUpperCase()
                     : 'U',
                 style: const TextStyle(
@@ -141,19 +142,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Email
           Text(
             _profile!['email'] ?? '',
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 16, color: AppColors.textMuted),
           ),
           const SizedBox(height: 4),
           // Phone
           Text(
             _profile!['phone'] ?? '+92 XXX XXXXXXX',
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 16, color: AppColors.textMuted),
           ),
           const SizedBox(height: 40),
 
@@ -165,7 +160,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (_profile != null) {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => EditProfileScreen(initialProfile: _profile!)),
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        EditProfileScreen(initialProfile: _profile!),
+                  ),
                 );
                 if (result == true) {
                   _loadProfile();
@@ -177,16 +175,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.notifications_rounded,
             title: 'Notifications',
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
             },
           ),
           _buildOptionTile(
             icon: Icons.history_rounded,
             title: 'My Bookings',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyBookingsScreen()),
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Please select the Bookings tab from the bottom menu.',
+                  ),
+                ),
               );
             },
           ),
@@ -194,13 +198,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.settings_rounded,
             title: 'Settings',
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
             },
-          ),
-          _buildOptionTile(
-            icon: Icons.engineering_rounded,
-            title: 'Provider Area',
-            onTap: _openProviderIntro,
           ),
 
           const SizedBox(height: 40),
@@ -211,20 +213,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: ElevatedButton.icon(
               onPressed: _logout,
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Logout',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: AppColors.error,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: AppColors.error.withValues(alpha: 0.5),
+                  ),
                 ),
                 elevation: 0,
               ),
             ),
           ),
-          
+
           const SizedBox(height: 40),
         ],
       ),
@@ -262,8 +269,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppColors.textDark,
           ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded,
-            size: 14, color: AppColors.textMuted),
+        trailing: const Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 14,
+          color: AppColors.textMuted,
+        ),
       ),
     );
   }
