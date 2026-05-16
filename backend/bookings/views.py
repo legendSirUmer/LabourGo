@@ -134,7 +134,6 @@ class BookingStatusUpdateView(APIView):
         if new_status == 'completed' and booking.provider:
             try:
                 from providers.models import Provider
-                from bookings.models import Booking
                 provider = Provider.objects.filter(
                     email__iexact=booking.provider.email
                 ).first()

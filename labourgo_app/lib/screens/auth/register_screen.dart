@@ -53,6 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('access_token', result['tokens']['access']);
         await prefs.setString('refresh_token', result['tokens']['refresh']);
+        await prefs.setBool('is_provider_signed_in', false);
         await prefs.setString('user_name', _nameCtrl.text.trim());
         await prefs.setString('user_email', _emailCtrl.text.trim());
         await prefs.setString('user_phone', _phoneCtrl.text.trim());

@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final results = await Future.wait([
         ApiService.getCategories(),
-        ApiService.getProviders(),
+        ApiService.fetchProviders(),
         ApiService.getProfile(),
         ApiService.getMyPayments(),
       ]);
@@ -90,6 +90,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (value.startsWith('/')) return '$origin$value';
     return '$origin/$value';
+  }
+
+  String _formatPrice(dynamic rawValue) {
+    if (rawValue == null) return '0';
+    if (rawValue is num) {
+      return rawValue % 1 == 0
+          ? rawValue.toStringAsFixed(0)
+          : rawValue.toStringAsFixed(2);
+    }
+    final parsed = double.tryParse(rawValue.toString());
+    if (parsed != null) {
+      return parsed % 1 == 0
+          ? parsed.toStringAsFixed(0)
+          : parsed.toStringAsFixed(2);
+    }
+    return rawValue.toString();
   }
 
   IconData _categoryIcon(String name) {
@@ -931,9 +947,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _providerCard(Map p, int index) {
-    final name = p['full_name'] ?? 'Provider';
+    final name = p['name'] ?? p['full_name'] ?? 'Provider';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'P';
-    final photoUrl = _profilePicUrl(p['profile_pic']);
+    final photoUrl = _profilePicUrl(p['image'] ?? p['profile_pic']);
+    final specialty =
+        (p['skills'] is String && (p['skills'] as String).trim().isNotEmpty)
+        ? (p['skills'] as String).split(RegExp(r'[,;/\n]+')).first.trim()
+        : (p['role'] is String ? p['role'] : 'Service Provider');
+    final ratingValue = p['rating'] is num
+        ? (p['rating'] as num).toDouble()
+        : double.tryParse(p['rating']?.toString() ?? '') ?? 0.0;
+    final ratingText = ratingValue.toStringAsFixed(1);
+    final jobsCompleted = p['jobs_completed']?.toString() ?? '0';
+    final pricePerHour = _formatPrice(
+      p['price_per_hour'] ?? p['price'] ?? p['hourly_rate'],
+    );
 
     return Container(
       width: 168,
@@ -1045,15 +1073,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Role
-          const Text(
-            'Plumber',
-            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+          // Specialty / Service
+          Text(
+            specialty.toString(),
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
 
           const SizedBox(height: 6),
 
-          // Rating
+          // Rating + jobs completed
           Row(
             children: [
               const Icon(
@@ -1061,18 +1091,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Color(0xFFFFC107),
                 size: 14,
               ),
-              const SizedBox(width: 3),
-              const Text(
-                '4.8',
-                style: TextStyle(
+              const SizedBox(width: 4),
+              Text(
+                ratingText,
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textDark,
                 ),
               ),
+              const SizedBox(width: 6),
               Text(
-                ' (120)',
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                '($jobsCompleted jobs)',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1081,8 +1117,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Price
           Text(
-            'PKR 1200/hr',
-            style: TextStyle(
+            'PKR $pricePerHour/hr',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.primary,

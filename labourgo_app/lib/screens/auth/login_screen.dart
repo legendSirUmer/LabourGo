@@ -75,11 +75,16 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('access_token', result['tokens']['access']);
     await prefs.setString('refresh_token', result['tokens']['refresh']);
     await prefs.setBool('is_logged_in', true);
+    await prefs.setBool('is_provider_signed_in', false);
     final user = result['user'];
     if (user is Map<String, dynamic>) {
       final userEmail = (user['email'] ?? '').toString();
       final userName = (user['full_name'] ?? '').toString();
       final userPhone = (user['phone'] ?? '').toString();
+      final role = (user['role'] ?? '').toString().toLowerCase();
+      final isProvider = role == 'provider';
+
+      await prefs.setBool('is_provider_signed_in', isProvider);
       if (userEmail.isNotEmpty) {
         await prefs.setString('user_email', userEmail);
       }
@@ -161,7 +166,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (verifyResult.containsKey('tokens')) {
           await _onAuthSuccess(verifyResult, email: _emailCtrl.text.trim());
         } else {
-          setState(() => _error = verifyResult['error'] ?? '2FA verification failed.');
+          setState(
+            () => _error = verifyResult['error'] ?? '2FA verification failed.',
+          );
         }
       } else {
         setState(() => _error = result['error'] ?? 'Login failed. Try again.');
