@@ -25,7 +25,7 @@ class _ProviderSignInScreenState extends State<ProviderSignInScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+    Future<void> _submit() async {
     final email = _emailCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
 
@@ -93,22 +93,35 @@ class _ProviderSignInScreenState extends State<ProviderSignInScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Provider Sign In',
-          style: TextStyle(
-            color: _kBlue,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+    appBar: AppBar(
+  backgroundColor: Colors.white,
+  elevation: 0,
+  centerTitle: true,
+  leading: GestureDetector(
+    onTap: () => Navigator.pop(context),
+    child: Container(
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _kBg,
+        border: Border.all(color: Color(0xFFD0E4F5)),
       ),
+      child: const Icon(Icons.chevron_left_rounded, color: _kBlue, size: 24),
+    ),
+  ),
+  title: const Text(
+    'Provider Sign In',
+    style: TextStyle(
+      color: _kBlue,
+      fontWeight: FontWeight.w700,
+    ),
+  ),
+),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

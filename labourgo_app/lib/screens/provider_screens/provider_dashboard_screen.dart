@@ -86,14 +86,9 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
   }
 
   Future<void> _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
-    await prefs.remove('refresh_token');
-    await prefs.remove('provider_id');
-    await prefs.setBool('is_logged_in', false);
-    await prefs.setBool('is_provider_signed_in', false);
+    await ApiService.clearToken();
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
   @override

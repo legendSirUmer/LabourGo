@@ -74,6 +74,45 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
     }
   }
 
+ Future<void> _acceptBooking(int bookingId) async {
+    try {
+      await ApiService.updateBookingStatus(bookingId, 'accepted');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking accepted!'),
+          backgroundColor: Color(0xFF1FA971),
+        ),
+      );
+      _loadBookings();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to accept: $e')),
+      );
+    }
+  }
+
+  // ADD THIS RIGHT AFTER ↑
+  Future<void> _updateStatus(int bookingId, String newStatus) async {
+    try {
+      await ApiService.updateBookingStatus(bookingId, newStatus);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status updated to $newStatus!'),
+          backgroundColor: const Color(0xFF1FA971),
+        ),
+      );
+      _loadBookings();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e')),
+      );
+    }
+  }
+
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'accepted':
@@ -92,7 +131,9 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
   String _formatStatus(String status) {
     final words = status.split('_');
     return words
-        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map((word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}')
         .join(' ');
   }
 
@@ -113,7 +154,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
               Navigator.pushReplacementNamed(context, '/profile');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/customer_dashboard');
+              Navigator.pushReplacementNamed(context, '/home');
               break;
           }
         },
@@ -271,7 +312,8 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(20),
@@ -306,9 +348,10 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
   }
 
   Widget _buildSummaryCard() {
-    final pendingCount = _bookings.where(
-      (item) => (item['status'] ?? '').toString().toLowerCase() == 'pending',
-    ).length;
+    final pendingCount = _bookings
+        .where((item) =>
+            (item['status'] ?? '').toString().toLowerCase() == 'pending')
+        .length;
 
     return Container(
       decoration: BoxDecoration(
@@ -395,7 +438,8 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F2FB),
                 borderRadius: BorderRadius.circular(10),
@@ -418,7 +462,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
           ...List.generate(
             _bookings.length,
             (index) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 14),
               child: _buildBookingCard(_bookings[index]),
             ),
           ),
@@ -478,116 +522,261 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
   Widget _buildBookingCard(Map<String, dynamic> booking) {
     final customer = booking['customer'] as Map<String, dynamic>?;
     final customerName = (customer?['full_name'] ?? 'Customer').toString();
-    final customerPhone = (customer?['phone'] ?? 'Phone not available').toString();
-    final address = (booking['location_address'] ?? 'Address not available').toString();
+    final customerPhone = (customer?['phone'] ?? 'N/A').toString();
+    final address =
+        (booking['location_address'] ?? 'Address not available').toString();
     final status = (booking['status'] ?? 'pending').toString();
     final category = booking['category'] as Map<String, dynamic>?;
     final serviceName = (category?['name'] ?? 'Service').toString();
     final scheduledDate = (booking['scheduled_date'] ?? '').toString();
     final scheduledTime = (booking['scheduled_time'] ?? '').toString();
     final price = booking['price_offered']?.toString();
+    final bookingId = booking['id'];
     final statusColor = _statusColor(status);
+    final isPending = status.toLowerCase() == 'pending';
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 3),
+            color: AppColors.primary.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F2FB),
-                  borderRadius: BorderRadius.circular(12),
+          // ── Status bar ──
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.08),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.person_outline_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      customerName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E3A5F),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      serviceName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF5A7A9A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _formatStatus(status),
+                const SizedBox(width: 8),
+                Text(
+                  _formatStatus(status).toUpperCase(),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: statusColor,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _BookingDetailRow(
-            icon: Icons.phone_outlined,
-            label: 'Phone',
-            value: customerPhone,
-          ),
-          const SizedBox(height: 8),
-          _BookingDetailRow(
-            icon: Icons.location_on_outlined,
-            label: 'Address',
-            value: address,
-          ),
-          if (scheduledDate.isNotEmpty || scheduledTime.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _BookingDetailRow(
-              icon: Icons.schedule_outlined,
-              label: 'Schedule',
-              value: '$scheduledDate ${scheduledTime.isNotEmpty ? 'at $scheduledTime' : ''}'.trim(),
+                const Spacer(),
+                if (price != null && price.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'PKR $price',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-          if (price != null && price.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _BookingDetailRow(
-              icon: Icons.payments_outlined,
-              label: 'Offered Price',
-              value: 'PKR $price',
+          ),
+
+          // ── Card body ──
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Customer row
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            customerName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1E3A5F),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            serviceName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primary.withOpacity(0.7),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: Color(0xFFEEF3F8)),
+                const SizedBox(height: 14),
+
+                // Details
+                _BookingDetailRow(
+                  icon: Icons.phone_outlined,
+                  label: 'Phone',
+                  value: customerPhone,
+                ),
+                const SizedBox(height: 8),
+                _BookingDetailRow(
+                  icon: Icons.location_on_outlined,
+                  label: 'Address',
+                  value: address,
+                ),
+                if (scheduledDate.isNotEmpty ||
+                    scheduledTime.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _BookingDetailRow(
+                    icon: Icons.schedule_outlined,
+                    label: 'Schedule',
+                    value:
+                        '$scheduledDate${scheduledTime.isNotEmpty ? ' at $scheduledTime' : ''}'
+                            .trim(),
+                  ),
+                ],
+
+               // ── Accept button ──
+                if (isPending && bookingId != null) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _acceptBooking(
+                        bookingId is int
+                            ? bookingId
+                            : int.tryParse(bookingId.toString()) ?? 0,
+                      ),
+                      icon: const Icon(Icons.check_circle_rounded, size: 18),
+                      label: const Text(
+                        'Accept Request',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1FA971),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── Start Job button ──
+                if (status.toLowerCase() == 'accepted' && bookingId != null) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _updateStatus(
+                        bookingId is int
+                            ? bookingId
+                            : int.tryParse(bookingId.toString()) ?? 0,
+                        'in_progress',
+                      ),
+                      icon: const Icon(Icons.play_circle_rounded, size: 18),
+                      label: const Text(
+                        'Start Job',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2AB0BC),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── In Progress label ──
+                if (status.toLowerCase() == 'in_progress') ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2AB0BC).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF2AB0BC).withOpacity(0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.hourglass_top_rounded,
+                            size: 16, color: Color(0xFF2AB0BC)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Waiting for customer to confirm completion',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2AB0BC),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -600,7 +789,8 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
       decoration: BoxDecoration(
         color: const Color(0xFFFCEBEB),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF09595), width: 0.5),
+        border: Border.all(
+            color: const Color(0xFFF09595), width: 0.5),
       ),
       child: Row(
         children: [

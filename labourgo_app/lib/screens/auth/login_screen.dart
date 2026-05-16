@@ -6,6 +6,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/error_banner.dart';
 import 'register_screen.dart';
+import '../bookings/home_screen.dart';
+import 'forgot_password_screen.dart';
+import 'two_factor_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -139,6 +142,27 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (result.containsKey('tokens')) {
         await _onAuthSuccess(result, email: _emailCtrl.text.trim());
+      } else if (result['requires_2fa'] == true) {
+        final challengeToken = result['challenge_token']?.toString();
+        if (challengeToken == null || challengeToken.isEmpty) {
+          setState(() => _error = '2FA challenge token missing.');
+          return;
+        }
+        final verifyResult = await Navigator.push<Map<String, dynamic>>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TwoFactorLoginScreen(
+              challengeToken: challengeToken,
+              email: _emailCtrl.text.trim(),
+            ),
+          ),
+        );
+        if (!mounted || verifyResult == null) return;
+        if (verifyResult.containsKey('tokens')) {
+          await _onAuthSuccess(verifyResult, email: _emailCtrl.text.trim());
+        } else {
+          setState(() => _error = verifyResult['error'] ?? '2FA verification failed.');
+        }
       } else {
         setState(() => _error = result['error'] ?? 'Login failed. Try again.');
       }
@@ -251,7 +275,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ForgotPasswordScreen(
+                                  initialEmail: _emailCtrl.text.trim(),
+                                ),
+                              ),
+                            );
+                          },
                           child: const Text(
                             'Forgot password?',
                             style: TextStyle(color: Colors.black87),

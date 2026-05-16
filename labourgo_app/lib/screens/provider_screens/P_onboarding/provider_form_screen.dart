@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,7 +37,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
 
   // Profile image
   Uint8List? _profileImageBytes;
-  String? _profileImageName;
+  File? _profileImageFile;
 
   // Selectors
   String workType = "Select Work Type";
@@ -105,7 +106,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
         if (!mounted) return;
         setState(() {
           _profileImageBytes = bytes;
-          _profileImageName = picked.name;
+          _profileImageFile = File(picked.path);
         });
       }
     } catch (e) {
@@ -229,7 +230,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                   Navigator.pop(context);
                   setState(() {
                     _profileImageBytes = null;
-                    _profileImageName = null;
+                    _profileImageFile = null;
                   });
                 },
                 child: const Padding(
@@ -299,18 +300,17 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
     }
 
     final created = await ApiService.createProvider(
-      data: {
-        "name": name.text.trim(),
-        "email": email.text.trim(),
-        "phone": cleanPhone,
-        "skills": workType,
-        "experience": experienceYears,
-        "price_per_hour": priceValue,
-      },
-      imageBytes: _profileImageBytes,
-      imageName: _profileImageName,
-    );
-
+  data: {
+    "name": name.text.trim(),
+    "email": email.text.trim(),
+    "phone": cleanPhone,
+    "skills": workType,
+    "experience": experienceYears,
+    "price_per_hour": priceValue,
+  },
+  imageBytes: _profileImageBytes,     // <-- use bytes
+  imageFileName: 'profile.jpg',       // <-- give it a name
+);
     // ✅ IMPORTANT FIX — SAVE USER DATA
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_email', email.text.trim());

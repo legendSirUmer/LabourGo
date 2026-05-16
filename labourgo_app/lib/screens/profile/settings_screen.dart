@@ -110,6 +110,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1, indent: 56, endIndent: 16),
                   _buildListTile(
                     context,
+                    Icons.work_outline_rounded,
+                    'Become a Provider',
+                    showArrow: true,
+                    onTap: () {
+                      Navigator.pushNamed(context, '/provider_intro');
+                    },
+                  ),
+                  const Divider(height: 1, indent: 56, endIndent: 16),
+                  _buildListTile(
+                    context,
                     Icons.privacy_tip_outlined,
                     'Privacy Policy',
                     showArrow: true,
@@ -213,6 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String title, {
     Widget? trailing,
     bool showArrow = false,
+    VoidCallback? onTap,
   }) {
     return ListTile(
       leading: Icon(icon, color: AppColors.primary, size: 24),
@@ -229,11 +240,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: AppColors.textMuted,
                 )
               : null),
-      onTap: () {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$title tapped!')));
-      },
+      onTap:
+          onTap ??
+          () {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('$title tapped!')));
+          },
     );
   }
 

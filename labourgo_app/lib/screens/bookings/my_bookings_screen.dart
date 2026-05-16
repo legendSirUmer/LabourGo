@@ -85,7 +85,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   ? ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.18,
+                        ),
                         Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -143,16 +145,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                     Text(
                                       b['category']?['name'] ?? 'Service',
                                       style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 4),
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: _statusColor(b['status'])
                                             .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         b['status'].toString().toUpperCase(),
@@ -173,9 +179,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                         size: 16, color: Colors.grey),
                                     const SizedBox(width: 4),
                                     Text(
-                                      b['provider']?['full_name'] ?? 'Provider',
-                                      style:
-                                          const TextStyle(color: Colors.grey),
+                                      b['provider']?['full_name'] ??
+                                          'Provider',
+                                      style: const TextStyle(
+                                          color: Colors.grey),
                                     ),
                                   ],
                                 ),
@@ -188,8 +195,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                     const SizedBox(width: 4),
                                     Text(
                                       '${b['scheduled_date']} at ${b['scheduled_time']}',
-                                      style:
-                                          const TextStyle(color: Colors.grey),
+                                      style: const TextStyle(
+                                          color: Colors.grey),
                                     ),
                                   ],
                                 ),
@@ -211,7 +218,91 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                   ],
                                 ),
 
-                                // Action buttons
+                                // ── In Progress: Customer confirms completion ──
+                                if (b['status'] == 'in_progress') ...[
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 44,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        final confirm =
+                                            await showDialog<bool>(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            title: const Text(
+                                                'Confirm Completion'),
+                                            content: const Text(
+                                              'Are you sure the job has been completed?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, true),
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF4682B4),
+                                                ),
+                                                child: const Text(
+                                                  'Yes, Completed',
+                                                  style: TextStyle(
+                                                      color: Colors.white),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          try {
+                                            await ApiService
+                                                .updateBookingStatus(
+                                              b['id'],
+                                              'completed',
+                                            );
+                                            _loadBookings();
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content:
+                                                    Text('Failed: $e'),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      icon: const Icon(
+                                          Icons.done_all_rounded,
+                                          size: 16),
+                                      label: const Text('Job Completed'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF4682B4),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+
+                                // ── Completed: Pay + Review ──
                                 if (b['status'] == 'completed') ...[
                                   const SizedBox(height: 12),
                                   Row(
@@ -227,7 +318,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                                         ?.toString() ??
                                                     '0',
                                                 providerName:
-                                                    b['provider']?['full_name'] ??
+                                                    b['provider']?[
+                                                            'full_name'] ??
                                                         'Provider',
                                                 serviceName:
                                                     b['category']?['name'] ??

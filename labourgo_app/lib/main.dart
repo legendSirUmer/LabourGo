@@ -8,8 +8,10 @@ import 'screens/onboarding/onboarding_language.dart';
 import 'screens/onboarding/onboarding_carousel.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/auth/google_authenticator_screen.dart';
 import 'screens/bookings/home_screen.dart';
-import 'screens/customer_dashboard_temp.dart';
+//import 'screens/customer_dashboard_temp.dart';
 import 'screens/provider_screens/P_onboarding/provider_intro_screen.dart';
 import 'screens/provider_screens/P_onboarding/provider_form_screen.dart';
 import 'screens/provider_screens/P_onboarding/provider_signin_screen.dart';
@@ -19,7 +21,7 @@ import 'screens/provider_screens/availability_screen.dart';
 import 'screens/provider_screens/pricing_screen.dart';
 import 'screens/provider_screens/performance_screen.dart';
 import 'screens/provider_screens/certificate_screen.dart';
-
+import 'screens/provider_screens/booking_checking_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +51,9 @@ class LabourGoApp extends StatelessWidget {
         '/carousel': (context) => const OnboardingCarousel(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/customer_dashboard': (context) => const CustomerDashboardTemp(),
+        '/forgot_password': (context) => const ForgotPasswordScreen(),
+        '/google_authenticator': (context) => const GoogleAuthenticatorScreen(),
+        //'/customer_dashboard': (context) => const CustomerDashboardTemp(),
         '/provider_intro': (context) => const ProviderIntroScreen(),
         '/provider_form': (context) => const ProviderFormScreen(),
         '/provider_signin': (context) => const ProviderSignInScreen(),
@@ -60,6 +64,7 @@ class LabourGoApp extends StatelessWidget {
         '/availability': (context) => const AvailabilityScreen(),
         '/certificates': (context) => const CertificateScreen(),
         '/home': (context) => const HomeScreen(),
+        '/view-bookings': (context) => const BookingCheckingScreen(),
       },
     );
   }

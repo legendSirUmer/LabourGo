@@ -1188,10 +1188,32 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 32),
-            _profileTile(Icons.person_outlined, 'Edit Profile', () {}),
-            _profileTile(Icons.history_rounded, 'Booking History', () {}),
-            _profileTile(Icons.payment_rounded, 'Payment History', () {}),
-            _profileTile(Icons.help_outline_rounded, 'Help & Support', () {}),
+            _profileTile(Icons.person_outlined, 'Edit Profile', () {
+              // Open the full profile screen inside the app (bottom tab)
+              setState(() {
+                _navIndex = 3;
+              });
+            }),
+            _profileTile(Icons.history_rounded, 'Booking History', () {
+              setState(() {
+                _navIndex = 1;
+                _bookingsRefreshToken++;
+              });
+            }),
+            _profileTile(Icons.payment_rounded, 'Payment History', () {
+              setState(() {
+                _navIndex = 2;
+              });
+            }),
+            _profileTile(Icons.help_outline_rounded, 'Help & Support', () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Help & Support coming soon')),
+              );
+            }),
+
+            _profileTile(Icons.work_outline_rounded, 'Become a Provider', () {
+              Navigator.pushNamed(context, '/provider_intro');
+            }),
             const SizedBox(height: 16),
             _profileTile(
               Icons.logout_rounded,
@@ -1252,6 +1274,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.calendar_month_rounded, 'label': 'Bookings'},
       {'icon': Icons.payment_rounded, 'label': 'Payments'},
       {'icon': Icons.person_rounded, 'label': 'Profile'},
+      {'icon': Icons.work_outline_rounded, 'label': 'Provider'},
     ];
 
     return Container(
@@ -1279,6 +1302,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
+                if ((item['label'] as String) == 'Provider') {
+                  Navigator.pushNamed(context, '/provider_intro');
+                  return;
+                }
                 setState(() {
                   if (index == 1 && _navIndex != 1) {
                     _bookingsRefreshToken++;

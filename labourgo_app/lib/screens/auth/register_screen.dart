@@ -58,7 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await prefs.setString('user_phone', _phoneCtrl.text.trim());
 
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/login');
         }
       } else {
         // Show first error from response

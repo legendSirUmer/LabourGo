@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -291,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+    Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _imagePicker.pickImage(
         source: source,
@@ -300,20 +301,16 @@ class _ProfileScreenState extends State<ProfileScreen>
       );
 
       if (picked == null) return;
-      final bytes = await picked.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _selectedImageBytes = bytes;
-        _selectedImageName = picked.name;
-      });
-      await _uploadImage(bytes, picked.name);
+      final file = File(picked.path);
+
+setState(() => _selectedImageName = file.path.split('/').last);      await _uploadImage(file);
     } catch (e) {
       if (!mounted) return;
       _showSnack('Could not pick image: $e', isError: true);
     }
   }
 
-  Future<void> _uploadImage(Uint8List bytes, String? name) async {
+  Future<void> _uploadImage(File file) async {
     if (_providerId == null) {
       _showSnack('Provider not found', isError: true);
       return;
@@ -321,18 +318,13 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     setState(() => _imageUploading = true);
     try {
-      final data = await ApiService.updateProviderImage(
-        _providerId!,
-        imageBytes: bytes,
-        imageName: name,
-      );
+      final data = await ApiService.updateProviderImage(_providerId!, file);
       final updatedPath = data['image']?.toString();
       final resolved = ApiService.resolveImageUrl(updatedPath);
 
       setState(() {
         if (resolved != null && resolved.isNotEmpty) {
           _imageUrl = resolved;
-          _selectedImageBytes = null;
           _selectedImageName = null;
         }
       });
