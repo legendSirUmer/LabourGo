@@ -1,0 +1,24 @@
+name: admin
+description: LabourGo Admin Panel
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.1
+  http: ^1.2.1
+  shared_preferences: ^2.2.3
+  fl_chart: ^0.68.0
+  intl: ^0.19.0
+  cached_network_image: ^3.3.1
+  google_fonts: ^6.2.1 # add karo
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/labourGo.png
+    - assets/icons/labourGo.ico
