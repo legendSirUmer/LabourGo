@@ -1,0 +1,9 @@
+google-adk
+openai
+python-dotenv
+psutil
+docker
+kubernetes
+requests
+fastapi
+uvicorn

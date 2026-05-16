@@ -1,0 +1,31 @@
+# Ignore Python virtual environments and environment folders
+**/env/
+**/venv/
+**/.venv/
+**/.env
+
+# Bytecode
+*.pyc
+__pycache__/
+
+# Editor files
+*.swp
+*.swo
+*.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Django
+*.sqlite3
+
+# Others
+*.log
