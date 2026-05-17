@@ -15,7 +15,6 @@ class ProviderDashboardScreen extends StatefulWidget {
 }
 
 class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
-
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _provider;
@@ -50,10 +49,7 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
           return;
         }
 
-        provider = await ApiService.findProviderByEmailPhone(
-          email,
-          phone,
-        );
+        provider = await ApiService.findProviderByEmailPhone(email, phone);
       }
 
       if (provider == null) {
@@ -93,8 +89,7 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final providerName =
-        (_provider?['name'] ?? 'Provider').toString().trim();
+    final providerName = (_provider?['name'] ?? 'Provider').toString().trim();
     final ratingValue = _provider?['rating'];
     final jobsValue = _provider?['jobs_completed'];
     final priceValue = _provider?['price_per_hour'];
@@ -105,34 +100,34 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
       _provider?['image']?.toString(),
     );
     final ratingNumber = ratingValue is num
-      ? ratingValue.toDouble()
-      : double.tryParse(ratingValue?.toString() ?? '');
+        ? ratingValue.toDouble()
+        : double.tryParse(ratingValue?.toString() ?? '');
     final ratingText = ratingNumber != null
-      ? 'Rating ${ratingNumber.toStringAsFixed(1)}'
-      : 'Rating -';
+        ? 'Rating ${ratingNumber.toStringAsFixed(1)}'
+        : 'Rating -';
     final jobsCount = jobsValue is num
-      ? jobsValue.toInt()
-      : int.tryParse(jobsValue?.toString() ?? '');
+        ? jobsValue.toInt()
+        : int.tryParse(jobsValue?.toString() ?? '');
     final jobsText = jobsCount != null
-      ? '$jobsCount Job${jobsCount == 1 ? '' : 's'}'
-      : 'Jobs -';
+        ? '$jobsCount Job${jobsCount == 1 ? '' : 's'}'
+        : 'Jobs -';
     final pricePerHour = priceValue is num
-      ? priceValue.toDouble()
-      : double.tryParse(priceValue?.toString() ?? '');
+        ? priceValue.toDouble()
+        : double.tryParse(priceValue?.toString() ?? '');
     final earnings = (pricePerHour != null && jobsCount != null)
-      ? pricePerHour * jobsCount
-      : null;
+        ? pricePerHour * jobsCount
+        : null;
     final earningsText = earnings != null
-      ? 'PKR ${earnings.toStringAsFixed(0)}'
-      : 'PKR -';
+        ? 'PKR ${earnings.toStringAsFixed(0)}'
+        : 'PKR -';
     final availabilityText = availabilityValue == true
-      ? 'Available'
-      : availabilityValue == false
+        ? 'Available'
+        : availabilityValue == false
         ? 'Unavailable'
         : 'Availability -';
     final skillsText = (skillsValue ?? '').toString().trim().isNotEmpty
-      ? (skillsValue ?? '').toString().trim()
-      : 'Skills not set';
+        ? (skillsValue ?? '').toString().trim()
+        : 'Skills not set';
     final statusText = _formatStatus(verificationStatus?.toString());
 
     final activities = _buildActivities(
@@ -145,213 +140,243 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
     return Scaffold(
       backgroundColor: _kBg,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            children: [
-              _DashboardHeader(
-                providerName: providerName,
-                profileImageUrl: profileImageUrl,
-                onLogout: _handleLogout,
-              ),
-
-              const SizedBox(height: 18),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_loading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    _ProviderSummaryCard(
-                      skillsText: skillsText,
-                      availabilityText: availabilityText,
-                      experienceYears: _provider?['experience'],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _InfoCard(
-                            icon: Icons.account_balance_wallet_rounded,
-                            title: 'Total Earnings',
-                            value: earningsText,
-                            iconColor: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _InfoCard(
-                            icon: Icons.trending_up_rounded,
-                            title: 'Performance',
-                            value: ratingText,
-                            iconColor: Colors.orange,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _InfoCard(
-                            icon: Icons.work_rounded,
-                            title: 'Jobs Completed',
-                            value: jobsText,
-                            iconColor: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _InfoCard(
-                            icon: Icons.verified_rounded,
-                            title: 'Verification',
-                            value: statusText,
-                            iconColor: Colors.purple,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.35,
-                      children: [
-                        _ActionTile(
-                          icon: Icons.person_rounded,
-                          title: 'Profile',
-                          subtitle: 'View details',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/profile');
-                          },
-                        ),
-                        _ActionTile(
-                          icon: Icons.calendar_month_rounded,
-                          title: 'Availability',
-                          subtitle: 'Update time',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/availability');
-                          },
-                        ),
-                        _ActionTile(
-                          icon: Icons.price_change_rounded,
-                          title: 'Pricing',
-                          subtitle: 'Set charges',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/pricing');
-                          },
-                        ),
-                        _ActionTile(
-                          icon: Icons.bar_chart_rounded,
-                          title: 'Performance',
-                          subtitle: 'View stats',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/performance');
-                          },
-                        ),
-                        _ActionTile(
-                          icon: Icons.workspace_premium_rounded,
-                          title: 'Certificates',
-                          subtitle: 'Upload proof',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/certificates');
-                          },
-                        ),
-                        _ActionTile(
-                          icon: Icons.book_online_rounded,
-                          title: 'Bookings',
-                          subtitle: 'View jobs',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/view-bookings');
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Recent Activity',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    if (activities.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          'No recent activity yet.',
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 12,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      )
-                    else
-                      ...activities
-                          .map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _ActivityCard(
-                                icon: item.icon,
-                                title: item.title,
-                                subtitle: item.subtitle,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  ],
+        child: GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            // Swipe left (negative velocity) -> go to Profile
+            if (velocity < -300) {
+              Navigator.pushNamed(context, '/profile');
+            }
+            // Swipe right (positive velocity) -> go to Customer Home
+            else if (velocity > 300) {
+              Navigator.pushNamed(context, '/home');
+            }
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              children: [
+                _DashboardHeader(
+                  providerName: providerName,
+                  profileImageUrl: profileImageUrl,
+                  onLogout: _handleLogout,
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 18),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      _ProviderSummaryCard(
+                        skillsText: skillsText,
+                        availabilityText: availabilityText,
+                        experienceYears: _provider?['experience'],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _InfoCard(
+                              icon: Icons.account_balance_wallet_rounded,
+                              title: 'Total Earnings',
+                              value: earningsText,
+                              iconColor: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _InfoCard(
+                              icon: Icons.trending_up_rounded,
+                              title: 'Performance',
+                              value: ratingText,
+                              iconColor: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _InfoCard(
+                              icon: Icons.work_rounded,
+                              title: 'Jobs Completed',
+                              value: jobsText,
+                              iconColor: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _InfoCard(
+                              icon: Icons.verified_rounded,
+                              title: 'Verification',
+                              value: statusText,
+                              iconColor: Colors.purple,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.15,
+                        children: [
+                          _ActionTile(
+                            icon: Icons.person_rounded,
+                            title: 'Profile',
+                            subtitle: 'View details',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                          ),
+                          _ActionTile(
+                            icon: Icons.calendar_month_rounded,
+                            title: 'Availability',
+                            subtitle: 'Update time',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/availability');
+                            },
+                          ),
+                          _ActionTile(
+                            icon: Icons.price_change_rounded,
+                            title: 'Pricing',
+                            subtitle: 'Set charges',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/pricing');
+                            },
+                          ),
+                          _ActionTile(
+                            icon: Icons.bar_chart_rounded,
+                            title: 'Performance',
+                            subtitle: 'View stats',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/performance');
+                            },
+                          ),
+                          _ActionTile(
+                            icon: Icons.workspace_premium_rounded,
+                            title: 'Certificates',
+                            subtitle: 'Upload proof',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/certificates');
+                            },
+                          ),
+                          _ActionTile(
+                            icon: Icons.book_online_rounded,
+                            title: 'Bookings',
+                            subtitle: 'View jobs',
+                            onTap: () {
+                              Navigator.pushNamed(context, '/view-bookings');
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      const Text(
+                        'Recent Activity',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      if (activities.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'No recent activity yet.',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        )
+                      else
+                        ...activities
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _ActivityCard(
+                                  icon: item.icon,
+                                  title: item.title,
+                                  subtitle: item.subtitle,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+      bottomNavigationBar: ProviderBottomNavigation(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 0) return;
+          switch (index) {
+            case 1:
+              Navigator.pushNamed(context, '/profile');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/view-bookings');
+              break;
+            case 3:
+              Navigator.pushNamed(context, '/home');
+              break;
+          }
+        },
       ),
     );
   }
@@ -416,7 +441,8 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
         _ActivityData(
           icon: Icons.payments_rounded,
           title: 'Hourly rate',
-          subtitle: 'You charge PKR ${pricePerHour.toStringAsFixed(0)} per hour.',
+          subtitle:
+              'You charge PKR ${pricePerHour.toStringAsFixed(0)} per hour.',
         ),
       );
     }
@@ -465,10 +491,7 @@ class _DashboardHeader extends StatelessWidget {
               const Spacer(),
               IconButton(
                 onPressed: onLogout,
-                icon: const Icon(
-                  Icons.logout_rounded,
-                  color: AppColors.white,
-                ),
+                icon: const Icon(Icons.logout_rounded, color: AppColors.white),
               ),
             ],
           ),
@@ -486,8 +509,8 @@ class _DashboardHeader extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 34,
                   backgroundColor: AppColors.white,
-                  backgroundImage: profileImageUrl != null &&
-                          profileImageUrl!.isNotEmpty
+                  backgroundImage:
+                      profileImageUrl != null && profileImageUrl!.isNotEmpty
                       ? NetworkImage(profileImageUrl!)
                       : null,
                   child: profileImageUrl == null || profileImageUrl!.isEmpty
@@ -574,7 +597,9 @@ class _ProviderSummaryCard extends StatelessWidget {
     final expValue = experienceYears is num
         ? (experienceYears as num).toInt()
         : null;
-    final expText = expValue != null ? '$expValue years experience' : 'Experience -';
+    final expText = expValue != null
+        ? '$expValue years experience'
+        : 'Experience -';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -688,11 +713,7 @@ class _InfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: iconColor,
-            size: 28,
-          ),
+          Icon(icon, color: iconColor, size: 28),
           const Spacer(),
           Text(
             title,
@@ -749,9 +770,7 @@ class _ActionTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.primary.withOpacity(0.08),
-            ),
+            border: Border.all(color: AppColors.primary.withOpacity(0.08)),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.07),
@@ -771,11 +790,7 @@ class _ActionTile extends StatelessWidget {
                   gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.white,
-                  size: 21,
-                ),
+                child: Icon(icon, color: AppColors.white, size: 21),
               ),
               const SizedBox(height: 10),
               Text(
@@ -826,20 +841,14 @@ class _ActivityCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.08),
-        ),
+        border: Border.all(color: AppColors.primary.withOpacity(0.08)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 22,
             backgroundColor: AppColors.accent.withOpacity(0.22),
-            child: Icon(
-              icon,
-              color: AppColors.primary,
-              size: 24,
-            ),
+            child: Icon(icon, color: AppColors.primary, size: 24),
           ),
 
           const SizedBox(width: 12),

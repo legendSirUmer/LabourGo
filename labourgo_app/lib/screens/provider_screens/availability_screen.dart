@@ -162,10 +162,11 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
-        backgroundColor:
-            isError ? const Color(0xFFE24B4A) : AppColors.primary,
+        content: Text(
+          msg,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+        backgroundColor: isError ? const Color(0xFFE24B4A) : AppColors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -187,20 +188,33 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading ? _buildLoader() : _buildContent(),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          // Swipe left -> Profile
+          if (velocity < -300) {
+            Navigator.pushNamed(context, '/profile');
+          }
+          // Swipe right -> Customer Home
+          else if (velocity > 300) {
+            Navigator.pushNamed(context, '/home');
+          }
+        },
+        child: _loading ? _buildLoader() : _buildContent(),
+      ),
       bottomNavigationBar: ProviderBottomNavigation(
         currentIndex: 0,
         onTap: (index) {
           if (index == 0) return;
           switch (index) {
             case 1:
-              Navigator.pushReplacementNamed(context, '/profile');
+              Navigator.pushNamed(context, '/profile');
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/view-bookings');
+              Navigator.pushNamed(context, '/view-bookings');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/customer_dashboard');
+              Navigator.pushNamed(context, '/home');
               break;
           }
         },
@@ -380,7 +394,9 @@ class _AvailabilityScreenState extends State<AvailabilityScreen>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          _isAvailable ? 'Status: Available' : 'Status: Unavailable',
+                          _isAvailable
+                              ? 'Status: Available'
+                              : 'Status: Unavailable',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,

@@ -4,9 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:confetti/confetti.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../theme/cust_theme.dart';
 import '../auth/login_screen.dart';
+import '../profile/edit_profile_screen.dart';
+import '../provider_screens/P_onboarding/provider_intro_screen.dart';
 import 'my_bookings_screen.dart';
 import 'create_booking_screen.dart';
 
@@ -21,12 +24,20 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _categories = [];
   List<dynamic> _providers = [];
   List<dynamic> _payments = [];
+  Map<String, dynamic>? _profile;
   bool _loading = true;
   bool _paymentsLoading = true;
   String? _paymentsError;
   String _userName = '';
+  String _searchQuery = '';
+  String _selectedCity = '';
+  String _selectedService = '';
+  double? _maxFee;
+  int? _currentProviderId;
   int _navIndex = 0;
   int _bookingsRefreshToken = 0;
+  final TextEditingController _searchCtrl = TextEditingController();
+  late final PageController _pageController;
   late ConfettiController _confettiController;
 
   @override
@@ -35,21 +46,42 @@ class _HomeScreenState extends State<HomeScreen> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
+    _pageController = PageController(initialPage: _navIndex);
     _loadData();
   }
 
   Future<void> _loadData() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       final results = await Future.wait([
         ApiService.getCategories(),
         ApiService.fetchProviders(),
         ApiService.getProfile(),
         ApiService.getMyPayments(),
       ]);
+      final profile = Map<String, dynamic>.from(results[2] as Map);
+      final userEmail =
+          (profile['email'] ?? prefs.getString('user_email') ?? '').toString();
+      final userPhone =
+          (profile['phone'] ?? prefs.getString('user_phone') ?? '').toString();
+      final currentProviderId = prefs.getInt('provider_id');
+      final providers = (results[1] as List)
+          .where(
+            (provider) => !_isCurrentProvider(
+              provider,
+              currentProviderId,
+              userEmail,
+              userPhone,
+            ),
+          )
+          .toList(growable: false);
+
       setState(() {
         _categories = results[0] as List;
-        _providers = results[1] as List;
-        _userName = (results[2] as Map)['full_name'] ?? 'User';
+        _providers = providers;
+        _profile = profile;
+        _userName = profile['full_name'] ?? 'User';
+        _currentProviderId = currentProviderId;
         _payments = results[3] as List;
         _loading = false;
         _paymentsLoading = false;
@@ -61,6 +93,637 @@ class _HomeScreenState extends State<HomeScreen> {
         _paymentsError = 'Could not load payments. Pull to refresh.';
       });
     }
+  }
+
+  List<dynamic> get _visibleCategories {
+    final query = _searchQuery.trim().toLowerCase();
+    return _categories
+        .where((category) {
+          final name = (category['name'] ?? '').toString().toLowerCase();
+          final matchesSearch = query.isEmpty || name.contains(query);
+          final matchesService =
+              _selectedService.isEmpty ||
+              name == _selectedService.toLowerCase();
+          return matchesSearch && matchesService;
+        })
+        .toList(growable: false);
+  }
+
+  List<dynamic> get _visibleProviders {
+    final query = _searchQuery.trim().toLowerCase();
+    return _providers
+        .where((provider) {
+          if (provider is! Map) return false;
+
+          final searchable = [
+            _providerName(provider),
+            _providerCity(provider),
+            _providerServiceText(provider),
+            (provider['phone'] ?? '').toString(),
+          ].join(' ').toLowerCase();
+
+          final matchesSearch = query.isEmpty || searchable.contains(query);
+          final city = _providerCity(provider).toLowerCase();
+          final matchesCity =
+              _selectedCity.isEmpty || city == _selectedCity.toLowerCase();
+          final service = _providerServiceText(provider).toLowerCase();
+          final matchesService =
+              _selectedService.isEmpty ||
+              service.contains(_selectedService.toLowerCase());
+          final fee = _providerFee(provider);
+          final matchesFee = _maxFee == null || fee == null || fee <= _maxFee!;
+
+          return matchesSearch && matchesCity && matchesService && matchesFee;
+        })
+        .toList(growable: false);
+  }
+
+  List<String> get _availableCities {
+    final cities = _providers
+        .whereType<Map>()
+        .map(_providerCity)
+        .where((city) => city.trim().isNotEmpty)
+        .toSet()
+        .toList();
+    cities.sort();
+    return cities;
+  }
+
+  String _providerName(Map provider) {
+    return (provider['name'] ?? provider['full_name'] ?? 'Provider').toString();
+  }
+
+  String _providerCity(Map provider) {
+    return (provider['city'] ??
+            provider['location_city'] ??
+            provider['area'] ??
+            provider['location'] ??
+            '')
+        .toString()
+        .trim();
+  }
+
+  List<String> _providerSkills(Map provider) {
+    final skillsValue = provider['skills'];
+    if (skillsValue == null) return [];
+
+    if (skillsValue is String) {
+      return skillsValue
+          .split(RegExp(r'[,;/\n]+'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    if (skillsValue is Iterable) {
+      return skillsValue
+          .map((value) => value?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    return [skillsValue.toString().trim()];
+  }
+
+  String _providerPrimaryService(Map provider) {
+    final skills = _providerSkills(provider);
+    if (skills.isNotEmpty) return skills.first;
+
+    final service = provider['service'] ?? provider['service_name'];
+    if (service is String && service.trim().isNotEmpty) return service.trim();
+
+    final categoryName = provider['category_name'] ?? provider['category'];
+    if (categoryName is String && categoryName.trim().isNotEmpty) {
+      return categoryName.trim();
+    }
+
+    return 'Service Provider';
+  }
+
+  String _providerServiceText(Map provider) {
+    final values = [
+      _providerSkills(provider),
+      provider['service'],
+      provider['service_name'],
+      provider['category'],
+      provider['category_name'],
+      provider['role'],
+      provider['service_id'],
+      provider['category_id'],
+    ];
+    return values
+        .where((value) => value != null)
+        .map(_formatProviderValue)
+        .where((value) => value.isNotEmpty)
+        .join(' ');
+  }
+
+  String _formatProviderValue(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value.trim();
+    if (value is num) return value.toString();
+    if (value is Iterable) {
+      return value
+          .map(_formatProviderValue)
+          .where((text) => text.isNotEmpty)
+          .join(' ');
+    }
+    if (value is Map) {
+      final parts = value.values
+          .map(_formatProviderValue)
+          .where((text) => text.isNotEmpty)
+          .toSet()
+          .toList();
+      return parts.join(' ');
+    }
+    return value.toString().trim();
+  }
+
+  double? _providerFee(Map provider) {
+    final raw =
+        provider['price_per_hour'] ??
+        provider['price'] ??
+        provider['hourly_rate'] ??
+        provider['fee'];
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw?.toString() ?? '');
+  }
+
+  Future<void> _openBookingForCategory(Map<String, dynamic> category) async {
+    final created = await Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (_, __, ___) => CreateBookingScreen(
+          category: category,
+          excludedProviderId: _currentProviderId,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(scale: animation, child: child),
+          );
+        },
+      ),
+    );
+    if (!mounted) return;
+    if (created == true) {
+      setState(() {
+        _navIndex = 1;
+        _bookingsRefreshToken++;
+      });
+    }
+  }
+
+  Map<String, dynamic>? _findCategoryForProvider(Map provider) {
+    final categoryField = provider['category'];
+    if (categoryField != null) {
+      final normalizedValue = _formatProviderValue(categoryField).toLowerCase();
+      if (normalizedValue.isNotEmpty) {
+        for (final category in _categories) {
+          final categoryName = (category['name'] ?? '')
+              .toString()
+              .toLowerCase();
+          final categoryId =
+              (category['id'] ?? category['category_id'])
+                  ?.toString()
+                  .toLowerCase() ??
+              '';
+          if (normalizedValue == categoryName ||
+              normalizedValue == categoryId ||
+              categoryName.contains(normalizedValue) ||
+              normalizedValue.contains(categoryName)) {
+            return category as Map<String, dynamic>;
+          }
+        }
+      }
+    }
+
+    final skills = _providerSkills(
+      provider,
+    ).map((skill) => skill.toLowerCase()).toList(growable: false);
+    if (skills.isNotEmpty) {
+      for (final category in _categories) {
+        final categoryName = (category['name'] ?? '').toString().toLowerCase();
+        if (categoryName.isNotEmpty) {
+          for (final skill in skills) {
+            if (skill == categoryName ||
+                skill.contains(categoryName) ||
+                categoryName.contains(skill)) {
+              return category as Map<String, dynamic>;
+            }
+          }
+        }
+      }
+    }
+
+    final serviceText = _providerServiceText(provider).toLowerCase();
+    for (final category in _categories) {
+      final categoryName = (category['name'] ?? '').toString().toLowerCase();
+      if (categoryName.isNotEmpty && serviceText.contains(categoryName)) {
+        return category as Map<String, dynamic>;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _openBookingForProvider(Map provider) async {
+    if (_categories.isEmpty) return;
+    final category =
+        _findCategoryForProvider(provider) ??
+        (_selectedService.isNotEmpty
+                ? _categories.firstWhere(
+                    (cat) =>
+                        (cat['name'] ?? '').toString().toLowerCase() ==
+                        _selectedService.toLowerCase(),
+                    orElse: () => _categories[0],
+                  )
+                : _categories[0])
+            as Map<String, dynamic>;
+    final created = await Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (_, __, ___) => CreateBookingScreen(
+          category: category,
+          initialProviderId: int.tryParse(provider['id']?.toString() ?? ''),
+          excludedProviderId: _currentProviderId,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(scale: animation, child: child),
+          );
+        },
+      ),
+    );
+    if (!mounted) return;
+    if (created == true) {
+      setState(() {
+        _navIndex = 1;
+        _bookingsRefreshToken++;
+      });
+    }
+  }
+
+  Future<void> _showProviderFilters() async {
+    String tempCity = _selectedCity;
+    String tempService = _selectedService;
+    final feeCtrl = TextEditingController(
+      text: _maxFee == null ? '' : _formatPrice(_maxFee),
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final services = _categories
+                .map((category) => (category['name'] ?? '').toString())
+                .where((name) => name.trim().isNotEmpty)
+                .toList(growable: false);
+            final cities = _availableCities;
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  16,
+                  20,
+                  MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Filter Providers',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              feeCtrl.clear();
+                              setSheetState(() {
+                                tempCity = '';
+                                tempService = '';
+                              });
+                            },
+                            child: const Text('Clear'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Maximum fee',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: feeCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. 1500',
+                          prefixText: 'PKR ',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'City',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _filterChip(
+                            label: 'Any',
+                            selected: tempCity.isEmpty,
+                            onTap: () => setSheetState(() => tempCity = ''),
+                          ),
+                          ...cities.map(
+                            (city) => _filterChip(
+                              label: city,
+                              selected: tempCity == city,
+                              onTap: () => setSheetState(() => tempCity = city),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Service',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _filterChip(
+                            label: 'Any',
+                            selected: tempService.isEmpty,
+                            onTap: () => setSheetState(() => tempService = ''),
+                          ),
+                          ...services.map(
+                            (service) => _filterChip(
+                              label: service,
+                              selected: tempService == service,
+                              onTap: () =>
+                                  setSheetState(() => tempService = service),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedCity = tempCity;
+                              _selectedService = tempService;
+                              _maxFee = double.tryParse(feeCtrl.text.trim());
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Apply Filters'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    feeCtrl.dispose();
+  }
+
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAllServices() {
+    final services = _visibleCategories;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _listSheet(
+          title: 'All Services',
+          child: services.isEmpty
+              ? const Center(child: Text('No services found'))
+              : ListView.separated(
+                  itemCount: services.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final category = services[index];
+                    final name = (category['name'] ?? 'Service').toString();
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _catBg(index),
+                        child: Icon(
+                          _categoryIcon(name),
+                          color: _catColor(index),
+                        ),
+                      ),
+                      title: Text(name),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openBookingForCategory(category);
+                      },
+                    );
+                  },
+                ),
+        );
+      },
+    );
+  }
+
+  void _showAllProviders() {
+    final providers = _visibleProviders;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _listSheet(
+          title: 'All Providers',
+          child: providers.isEmpty
+              ? const Center(child: Text('No providers found'))
+              : ListView.separated(
+                  itemCount: providers.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final provider = providers[index] as Map;
+                    final name = _providerName(provider);
+                    final city = _providerCity(provider);
+                    final fee = _formatPrice(
+                      provider['price_per_hour'] ??
+                          provider['price'] ??
+                          provider['hourly_rate'],
+                    );
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _catBg(index),
+                        child: Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : 'P',
+                          style: TextStyle(
+                            color: _catColor(index),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      title: Text(name),
+                      subtitle: Text(
+                        [
+                          _providerServiceText(provider),
+                          if (city.isNotEmpty) city,
+                          'PKR $fee/hr',
+                        ].where((value) => value.trim().isNotEmpty).join(' • '),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _openBookingForProvider(provider);
+                        },
+                        child: const Text('Book'),
+                      ),
+                    );
+                  },
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _listSheet({required String title, required Widget child}) {
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.78,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isCurrentProvider(
+    dynamic provider,
+    int? currentProviderId,
+    String userEmail,
+    String userPhone,
+  ) {
+    if (provider is! Map) return false;
+
+    final providerId = int.tryParse(provider['id']?.toString() ?? '');
+    if (currentProviderId != null && providerId == currentProviderId) {
+      return true;
+    }
+
+    final normalizedUserEmail = userEmail.trim().toLowerCase();
+    final normalizedProviderEmail = (provider['email'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (normalizedUserEmail.isNotEmpty &&
+        normalizedProviderEmail == normalizedUserEmail) {
+      return true;
+    }
+
+    final normalizedUserPhone = userPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    final normalizedProviderPhone = (provider['phone'] ?? '')
+        .toString()
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    return normalizedUserPhone.isNotEmpty &&
+        normalizedProviderPhone == normalizedUserPhone;
   }
 
   String _greeting() {
@@ -75,21 +738,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String? _profilePicUrl(dynamic rawValue) {
-    if (rawValue is! String) return null;
-    final value = rawValue.trim();
-    if (value.isEmpty) return null;
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
+    if (rawValue == null) return null;
+    if (rawValue is String && rawValue.trim().isNotEmpty) {
+      final value = rawValue.trim();
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        return value;
+      }
+      return ApiService.resolveImageUrl(value);
     }
-
-    // ApiService.baseUrl is like: http://127.0.0.1:8000/api
-    final base = ApiService.baseUrl;
-    final origin = base.endsWith('/api')
-        ? base.substring(0, base.length - '/api'.length)
-        : base;
-
-    if (value.startsWith('/')) return '$origin$value';
-    return '$origin/$value';
+    if (rawValue is Map && rawValue['url'] is String) {
+      return ApiService.resolveImageUrl(rawValue['url'].toString());
+    }
+    return null;
   }
 
   String _formatPrice(dynamic rawValue) {
@@ -190,8 +850,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ? const Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 )
-              : IndexedStack(
-                  index: _navIndex,
+              : PageView(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  onPageChanged: (index) {
+                    setState(() {
+                      _navIndex = index;
+                    });
+                  },
                   children: [
                     _buildHome(),
                     MyBookingsScreen(
@@ -200,6 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     _buildPaymentsSection(),
                     _buildProfile(),
+                    _buildProviderTab(),
                   ],
                 ),
           Align(
@@ -259,7 +926,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: Colors.white.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Row(
@@ -282,28 +949,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const Spacer(),
-                          GestureDetector(
-                            onTap: _logout,
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _firstName().isNotEmpty
-                                      ? _firstName()[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
+                          IconButton(
+                            onPressed: _logout,
+                            icon: const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.white,
                             ),
+                            tooltip: 'Logout',
                           ),
                         ],
                       ),
@@ -337,10 +989,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withOpacity(0.15),
                                 width: 1,
                               ),
                             ),
@@ -353,24 +1005,55 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    'Search for a service...',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
+                                  child: TextField(
+                                    controller: _searchCtrl,
+                                    onChanged: (value) {
+                                      setState(() => _searchQuery = value);
+                                    },
+                                    cursorColor: Colors.white,
+                                    style: const TextStyle(
+                                      color: Colors.white,
                                       fontSize: 14,
+                                    ),
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      border: InputBorder.none,
+                                      hintText: 'Search services or providers',
+                                      hintStyle: TextStyle(
+                                        color: Colors.white.withOpacity(0.8),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
+                                if (_searchQuery.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(6),
+                                      child: Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
                                   ),
-                                  child: const Icon(
-                                    Icons.tune_rounded,
-                                    color: Colors.white,
-                                    size: 18,
+                                GestureDetector(
+                                  onTap: _showProviderFilters,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.tune_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -439,7 +1122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   'Use code LABOURGO [TAP TO COPY]',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
+                                    color: Colors.white.withOpacity(0.9),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -466,22 +1149,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: AppColors.textDark,
                         ),
                       ),
-                      Row(
-                        children: [
-                          Text(
-                            'See All',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                      GestureDetector(
+                        onTap: _showAllServices,
+                        child: Row(
+                          children: [
+                            Text(
+                              'See All',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.primary,
-                            size: 18,
-                          ),
-                        ],
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -490,14 +1176,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Horizontal categories
                   SizedBox(
                     height: 90,
-                    child: _categories.isEmpty
+                    child: _visibleCategories.isEmpty
                         ? const Center(child: Text('No services'))
                         : AnimationLimiter(
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              itemCount: _categories.length,
+                              itemCount: _visibleCategories.length,
                               itemBuilder: (context, i) {
-                                final cat = _categories[i];
+                                final cat = _visibleCategories[i];
                                 return AnimationConfiguration.staggeredList(
                                   position: i,
                                   duration: const Duration(milliseconds: 375),
@@ -505,38 +1191,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     horizontalOffset: 50.0,
                                     child: FadeInAnimation(
                                       child: GestureDetector(
-                                        onTap: () async {
-                                          final created = await Navigator.push(
-                                            context,
-                                            PageRouteBuilder(
-                                              transitionDuration:
-                                                  const Duration(
-                                                    milliseconds: 400,
-                                                  ),
-                                              pageBuilder: (_, __, ___) =>
-                                                  CreateBookingScreen(
-                                                    category: cat,
-                                                  ),
-                                              transitionsBuilder:
-                                                  (_, animation, __, child) {
-                                                    return FadeTransition(
-                                                      opacity: animation,
-                                                      child: ScaleTransition(
-                                                        scale: animation,
-                                                        child: child,
-                                                      ),
-                                                    );
-                                                  },
-                                            ),
-                                          );
-                                          if (!mounted) return;
-                                          if (created == true) {
-                                            setState(() {
-                                              _navIndex = 1;
-                                              _bookingsRefreshToken++;
-                                            });
-                                          }
-                                        },
+                                        onTap: () =>
+                                            _openBookingForCategory(cat),
                                         child: Container(
                                           width: 90,
                                           margin: const EdgeInsets.only(
@@ -616,22 +1272,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: AppColors.textDark,
                         ),
                       ),
-                      Row(
-                        children: [
-                          Text(
-                            'See All',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                      GestureDetector(
+                        onTap: _showAllProviders,
+                        child: Row(
+                          children: [
+                            Text(
+                              'See All',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.primary,
-                            size: 18,
-                          ),
-                        ],
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -640,7 +1299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Horizontal provider cards
                   SizedBox(
                     height: 210,
-                    child: _providers.isEmpty
+                    child: _visibleProviders.isEmpty
                         ? Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
@@ -756,9 +1415,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         : AnimationLimiter(
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              itemCount: _providers.length,
+                              itemCount: _visibleProviders.length,
                               itemBuilder: (context, i) {
-                                final p = _providers[i];
+                                final p = _visibleProviders[i];
                                 return AnimationConfiguration.staggeredList(
                                   position: i,
                                   duration: const Duration(milliseconds: 375),
@@ -950,10 +1609,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final name = p['name'] ?? p['full_name'] ?? 'Provider';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'P';
     final photoUrl = _profilePicUrl(p['image'] ?? p['profile_pic']);
-    final specialty =
-        (p['skills'] is String && (p['skills'] as String).trim().isNotEmpty)
-        ? (p['skills'] as String).split(RegExp(r'[,;/\n]+')).first.trim()
-        : (p['role'] is String ? p['role'] : 'Service Provider');
+    final specialty = _providerPrimaryService(p);
     final ratingValue = p['rating'] is num
         ? (p['rating'] as num).toDouble()
         : double.tryParse(p['rating']?.toString() ?? '') ?? 0.0;
@@ -1127,33 +1783,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const Spacer(),
 
-          // Book button
           GestureDetector(
-            onTap: () async {
-              if (_categories.isNotEmpty) {
-                final created = await Navigator.push(
-                  context,
-                  PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 400),
-                    pageBuilder: (_, __, ___) =>
-                        CreateBookingScreen(category: _categories[0]),
-                    transitionsBuilder: (_, animation, __, child) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(scale: animation, child: child),
-                      );
-                    },
-                  ),
-                );
-                if (!mounted) return;
-                if (created == true) {
-                  setState(() {
-                    _navIndex = 1;
-                    _bookingsRefreshToken++;
-                  });
-                }
-              }
-            },
+            onTap: () => _openBookingForProvider(p),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1224,11 +1855,18 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 32),
-            _profileTile(Icons.person_outlined, 'Edit Profile', () {
-              // Open the full profile screen inside the app (bottom tab)
-              setState(() {
-                _navIndex = 3;
-              });
+            _profileTile(Icons.person_outlined, 'Edit Profile', () async {
+              if (_profile == null) return;
+
+              final updated = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditProfileScreen(initialProfile: _profile!),
+                ),
+              );
+              if (updated == true) {
+                _loadData();
+              }
             }),
             _profileTile(Icons.history_rounded, 'Booking History', () {
               setState(() {
@@ -1256,6 +1894,63 @@ class _HomeScreenState extends State<HomeScreen> {
               'Logout',
               _logout,
               color: AppColors.error,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── PROVIDER TAB ─────────────────────────────────────
+  Widget _buildProviderTab() {
+    final isProvider = _currentProviderId != null;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 20),
+            Icon(
+              Icons.work_outline_rounded,
+              size: 64,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isProvider ? 'Provider Dashboard' : 'Become a Provider',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isProvider
+                  ? 'You are registered as a provider. Manage your profile and bookings from the provider section.'
+                  : 'Join LabourGo as a trusted service provider to get bookings from customers in your area.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ProviderIntroScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(isProvider ? 'Open Provider Intro' : 'Get Started'),
+              ),
             ),
           ],
         ),
@@ -1338,16 +2033,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                if ((item['label'] as String) == 'Provider') {
-                  Navigator.pushNamed(context, '/provider_intro');
-                  return;
+                if (index == 1 && _navIndex != 1) {
+                  _bookingsRefreshToken++;
                 }
                 setState(() {
-                  if (index == 1 && _navIndex != 1) {
-                    _bookingsRefreshToken++;
-                  }
                   _navIndex = index;
                 });
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1377,6 +2073,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
+    _pageController.dispose();
     _confettiController.dispose();
     super.dispose();
   }

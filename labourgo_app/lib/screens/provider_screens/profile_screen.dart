@@ -144,8 +144,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
     setState(() => _saving = true);
     try {
-      final cleanPhone =
-          phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      final cleanPhone = phoneController.text.trim().replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
       await ApiService.updateProvider(_providerId!, {
         'name': nameController.text.trim(),
         'skills': skillsController.text.trim(),
@@ -217,13 +219,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
-        backgroundColor:
-            isError ? const Color(0xFFE24B4A) : AppColors.primary,
+        content: Text(
+          msg,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+        backgroundColor: isError ? const Color(0xFFE24B4A) : AppColors.primary,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
@@ -292,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-    Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _imagePicker.pickImage(
         source: source,
@@ -303,7 +305,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (picked == null) return;
       final file = File(picked.path);
 
-setState(() => _selectedImageName = file.path.split('/').last);      await _uploadImage(file);
+      setState(() => _selectedImageName = file.path.split('/').last);
+      await _uploadImage(file);
     } catch (e) {
       if (!mounted) return;
       _showSnack('Could not pick image: $e', isError: true);
@@ -381,20 +384,33 @@ setState(() => _selectedImageName = file.path.split('/').last);      await _uplo
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading ? _buildLoader() : _buildContent(),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          // Swipe left -> Bookings
+          if (velocity < -300) {
+            Navigator.pushNamed(context, '/view-bookings');
+          }
+          // Swipe right -> Dashboard
+          else if (velocity > 300) {
+            Navigator.pushNamed(context, '/provider_dashboard');
+          }
+        },
+        child: _loading ? _buildLoader() : _buildContent(),
+      ),
       bottomNavigationBar: ProviderBottomNavigation(
         currentIndex: 1,
         onTap: (index) {
           if (index == 1) return;
           switch (index) {
             case 0:
-              Navigator.pushReplacementNamed(context, '/provider_dashboard');
+              Navigator.pushNamed(context, '/provider_dashboard');
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/view-bookings');
+              Navigator.pushNamed(context, '/view-bookings');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/customer_dashboard');
+              Navigator.pushNamed(context, '/home');
               break;
           }
         },
@@ -515,8 +531,9 @@ setState(() => _selectedImageName = file.path.split('/').last);      await _uplo
                             autovalidateMode:
                                 AutovalidateMode.onUserInteraction,
                             style: _fieldTextStyle,
-                            decoration:
-                                _fieldDeco('e.g. Painter, Interior Design'),
+                            decoration: _fieldDeco(
+                              'e.g. Painter, Interior Design',
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -807,17 +824,17 @@ setState(() => _selectedImageName = file.path.split('/').last);      await _uplo
   }
 
   Widget _initialsAvatar() => Container(
-        color: const Color(0xFFD0E8F5),
-        alignment: Alignment.center,
-        child: Text(
-          _initials(),
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-      );
+    color: const Color(0xFFD0E8F5),
+    alignment: Alignment.center,
+    child: Text(
+      _initials(),
+      style: const TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: AppColors.primary,
+      ),
+    ),
+  );
 
   // ------------------------------------------
   // Error banner
@@ -921,32 +938,32 @@ setState(() => _selectedImageName = file.path.split('/').last);      await _uplo
   );
 
   InputDecoration _fieldDeco(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFAAC4D8), fontSize: 13),
-        isDense: true,
-        contentPadding: const EdgeInsets.only(bottom: 6, top: 2),
-        border: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD0E3F5), width: 1.5),
-        ),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD0E3F5), width: 1.5),
-        ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        errorBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE24B4A), width: 1.5),
-        ),
-        focusedErrorBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE24B4A), width: 1.5),
-        ),
-        errorStyle: const TextStyle(fontSize: 11),
-      );
+    hintText: hint,
+    hintStyle: const TextStyle(color: Color(0xFFAAC4D8), fontSize: 13),
+    isDense: true,
+    contentPadding: const EdgeInsets.only(bottom: 6, top: 2),
+    border: const UnderlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFFD0E3F5), width: 1.5),
+    ),
+    enabledBorder: const UnderlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFFD0E3F5), width: 1.5),
+    ),
+    focusedBorder: const UnderlineInputBorder(
+      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+    ),
+    errorBorder: const UnderlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFFE24B4A), width: 1.5),
+    ),
+    focusedErrorBorder: const UnderlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFFE24B4A), width: 1.5),
+    ),
+    errorStyle: const TextStyle(fontSize: 11),
+  );
 
   Widget _divider() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 10),
-        child: Divider(height: 1, color: Color(0xFFEDF3F9)),
-      );
+    padding: EdgeInsets.symmetric(vertical: 10),
+    child: Divider(height: 1, color: Color(0xFFEDF3F9)),
+  );
 }
 
 // --------------------------------------------

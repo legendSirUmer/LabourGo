@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 
 class CreateBookingScreen extends StatefulWidget {
   final Map<String, dynamic> category;
+  final int? initialProviderId;
+  final int? excludedProviderId;
 
-  const CreateBookingScreen({super.key, required this.category});
+  const CreateBookingScreen({
+    super.key,
+    required this.category,
+    this.initialProviderId,
+    this.excludedProviderId,
+  });
 
   @override
   State<CreateBookingScreen> createState() => _CreateBookingScreenState();
@@ -25,19 +33,144 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedProvider = widget.initialProviderId;
     _loadProviders();
   }
 
   Future<void> _loadProviders() async {
     try {
-      final providers = await ApiService.getProviders();
+      final prefs = await SharedPreferences.getInstance();
+      final currentProviderId =
+          widget.excludedProviderId ?? prefs.getInt('provider_id');
+      final userEmail = prefs.getString('user_email') ?? '';
+      final userPhone = prefs.getString('user_phone') ?? '';
+      final providers = await ApiService.fetchProviders();
+      final filteredProviders = providers
+          .where((provider) {
+            return !_isCurrentProvider(
+              provider,
+              currentProviderId,
+              userEmail,
+              userPhone,
+            );
+          })
+          .where(_matchesSelectedCategory)
+          .toList(growable: false);
+      final selectedStillAvailable = filteredProviders.any((provider) {
+        final providerId = int.tryParse(provider['id']?.toString() ?? '');
+        return providerId == _selectedProvider;
+      });
       setState(() {
-        _providers = providers;
+        _providers = filteredProviders;
+        if (!selectedStillAvailable) _selectedProvider = null;
         _loadingProviders = false;
       });
     } catch (e) {
       setState(() => _loadingProviders = false);
     }
+  }
+
+  bool _matchesSelectedCategory(dynamic provider) {
+    if (provider is! Map) return false;
+    final selectedCategory =
+        widget.category['name']?.toString().trim().toLowerCase() ?? '';
+    if (selectedCategory.isEmpty) return true;
+
+    final skills = _providerSkills(
+      provider,
+    ).map((skill) => skill.toLowerCase()).toList(growable: false);
+    if (skills.any((skill) {
+      return skill == selectedCategory ||
+          skill.contains(selectedCategory) ||
+          selectedCategory.contains(skill);
+    })) {
+      return true;
+    }
+
+    final serviceValue = (provider['service'] ?? provider['service_name'] ?? '')
+        .toString()
+        .toLowerCase();
+    if (serviceValue.isNotEmpty && serviceValue.contains(selectedCategory)) {
+      return true;
+    }
+
+    final categoryValue =
+        (provider['category_name'] ?? provider['category'] ?? '')
+            .toString()
+            .toLowerCase();
+    if (categoryValue.isNotEmpty && categoryValue.contains(selectedCategory)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool _isCurrentProvider(
+    dynamic provider,
+    int? currentProviderId,
+    String userEmail,
+    String userPhone,
+  ) {
+    if (provider is! Map) return false;
+
+    final providerId = int.tryParse(provider['id']?.toString() ?? '');
+    if (currentProviderId != null && providerId == currentProviderId) {
+      return true;
+    }
+
+    final normalizedUserEmail = userEmail.trim().toLowerCase();
+    final normalizedProviderEmail = (provider['email'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (normalizedUserEmail.isNotEmpty &&
+        normalizedProviderEmail == normalizedUserEmail) {
+      return true;
+    }
+
+    final normalizedUserPhone = userPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    final normalizedProviderPhone = (provider['phone'] ?? '')
+        .toString()
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    return normalizedUserPhone.isNotEmpty &&
+        normalizedProviderPhone == normalizedUserPhone;
+  }
+
+  List<String> _providerSkills(dynamic provider) {
+    if (provider is! Map) return [];
+    final skillsValue = provider['skills'];
+    if (skillsValue == null) return [];
+
+    if (skillsValue is String) {
+      return skillsValue
+          .split(RegExp(r'[,;/\n]+'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    if (skillsValue is Iterable) {
+      return skillsValue
+          .map((value) => value?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    return [skillsValue.toString().trim()];
+  }
+
+  String _providerName(dynamic provider) {
+    if (provider is Map) {
+      final name =
+          (provider['full_name'] ??
+                  provider['name'] ??
+                  provider['fullName'] ??
+                  '')
+              .toString()
+              .trim();
+      if (name.isNotEmpty) return name;
+    }
+    return 'Provider';
   }
 
   Future<void> _pickDate() async {
@@ -199,6 +332,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                           children: _providers.map((provider) {
                             final isSelected =
                                 _selectedProvider == provider['id'];
+                            final displayName = _providerName(provider);
                             return GestureDetector(
                               onTap: () => setState(
                                 () => _selectedProvider = provider['id'],
@@ -229,12 +363,8 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                                           0xFF1976D2,
                                         ).withValues(alpha: 0.2),
                                         child: Text(
-                                          provider['full_name'] != null &&
-                                                  provider['full_name']
-                                                      .toString()
-                                                      .isNotEmpty
-                                              ? provider['full_name'][0]
-                                                    .toUpperCase()
+                                          displayName.isNotEmpty
+                                              ? displayName[0].toUpperCase()
                                               : 'P',
                                           style: const TextStyle(
                                             color: Color(0xFF1976D2),
@@ -252,7 +382,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                                           tag:
                                               'provider-name-${provider['id']}',
                                           child: Text(
-                                            provider['full_name'] ?? 'Unknown',
+                                            displayName,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                             ),

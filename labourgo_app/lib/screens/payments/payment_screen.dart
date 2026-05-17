@@ -22,33 +22,61 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   String _selectedMethod = 'easypaisa';
   bool _loading = false;
-  bool _paid    = false;
+  bool _paid = false;
   String? _transactionId;
+  bool _initializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPaymentStatus();
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    try {
+      final payment = await ApiService.getPaymentByBooking(widget.bookingId);
+      if (!mounted) return;
+
+      // Check if payment exists and is already paid
+      if (payment.isNotEmpty && payment['status'] == 'paid') {
+        setState(() {
+          _paid = true;
+          _transactionId = payment['transaction_id'];
+        });
+      }
+    } catch (e) {
+      // Silently handle error - payment screen can still be used
+    } finally {
+      if (mounted) {
+        setState(() => _initializing = false);
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> _methods = [
     {
-      'id': 'easypaisa', 
-      'name': 'Easypaisa', 
+      'id': 'easypaisa',
+      'name': 'Easypaisa',
       'subtitle': 'Mobile wallet',
-      'iconColor': const Color(0xFF5CE1E6)
+      'iconColor': const Color(0xFF5CE1E6),
     },
     {
-      'id': 'jazzcash',  
-      'name': 'JazzCash',   
+      'id': 'jazzcash',
+      'name': 'JazzCash',
       'subtitle': 'Mobile wallet',
-      'iconColor': Colors.orange
+      'iconColor': Colors.orange,
     },
     {
-      'id': 'card',      
-      'name': 'Credit Card',        
+      'id': 'card',
+      'name': 'Credit Card',
       'subtitle': 'Visa / Mastercard',
-      'iconColor': const Color(0xFF4682B4)
+      'iconColor': const Color(0xFF4682B4),
     },
     {
-      'id': 'cash',      
-      'name': 'Cash',        
+      'id': 'cash',
+      'name': 'Cash',
       'subtitle': 'Pay on delivery',
-      'iconColor': Colors.green
+      'iconColor': Colors.green,
     },
   ];
 
@@ -57,19 +85,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       final result = await ApiService.makePayment(
         bookingId: widget.bookingId,
-        amount:    widget.amount,
-        method:    _selectedMethod,
+        amount: widget.amount,
+        method: _selectedMethod,
       );
       if (!mounted) return;
       if (result.containsKey('transaction_id')) {
         setState(() {
-          _paid          = true;
+          _paid = true;
           _transactionId = result['transaction_id'];
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.toString())));
       }
     } catch (e) {
       if (!mounted) return;
@@ -86,7 +114,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Payment', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+        title: const Text(
+          'Payment',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+        ),
         backgroundColor: const Color(0xFF4682B4),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -100,16 +131,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 14,
+                color: Colors.white,
+              ),
             ),
           ),
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: _paid ? _successView() : _paymentForm(),
-        ),
+        child: _initializing
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(20),
+                child: _paid ? _successView() : _paymentForm(),
+              ),
       ),
     );
   }
@@ -128,8 +165,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
           child: Column(
             children: [
-              const Text('Total Amount',
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Text(
+                'Total Amount',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
               const SizedBox(height: 8),
               Text(
                 'PKR ${widget.amount}',
@@ -142,88 +181,107 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(height: 8),
               Text(
                 '${widget.serviceName} Service · ${widget.providerName}',
-                style: const TextStyle(
-                  color: Color(0xFF5CE1E6),
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: Color(0xFF5CE1E6), fontSize: 13),
               ),
             ],
           ),
         ),
 
         const SizedBox(height: 24),
-        const Text('Choose Payment Method',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text(
+          'Choose Payment Method',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 16),
 
         // Payment methods
         Expanded(
           child: ListView(
-            children: _methods.map((method) => GestureDetector(
-                  onTap: () =>
-                      setState(() => _selectedMethod = method['id']),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _selectedMethod == method['id']
-                            ? const Color(0xFF4682B4)
-                            : Colors.grey.withValues(alpha: 0.3),
-                        width: 1,
+            children: _methods
+                .map(
+                  (method) => GestureDetector(
+                    onTap: () => setState(() => _selectedMethod = method['id']),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: (method['iconColor'] as Color).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: method['iconColor'],
-                                borderRadius: BorderRadius.circular(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _selectedMethod == method['id']
+                              ? const Color(0xFF4682B4)
+                              : Colors.grey.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: (method['iconColor'] as Color).withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: method['iconColor'],
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(method['name'],
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                            const SizedBox(height: 2),
-                            Text(method['subtitle'],
-                                style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                          ],
-                        ),
-                        const Spacer(),
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedMethod == method['id']
-                                  ? const Color(0xFF4682B4)
-                                  : Colors.grey.withValues(alpha: 0.3),
-                              width: _selectedMethod == method['id'] ? 6 : 1.5,
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                method['name'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                method['subtitle'],
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _selectedMethod == method['id']
+                                    ? const Color(0xFF4682B4)
+                                    : Colors.grey.withValues(alpha: 0.3),
+                                width: _selectedMethod == method['id']
+                                    ? 6
+                                    : 1.5,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                )).toList(),
+                )
+                .toList(),
           ),
         ),
 
@@ -245,10 +303,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : Text('Pay PKR ${widget.amount}',
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    'Pay PKR ${widget.amount}',
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
       ],
@@ -262,11 +327,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         children: [
           const Icon(Icons.check_circle, color: Colors.green, size: 80),
           const SizedBox(height: 16),
-          const Text('Payment Successful!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text(
+            'Payment Successful!',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text('Transaction ID: $_transactionId',
-              style: const TextStyle(color: Colors.grey)),
+          Text(
+            'Transaction ID: $_transactionId',
+            style: const TextStyle(color: Colors.grey),
+          ),
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,

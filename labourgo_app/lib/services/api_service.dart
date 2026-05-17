@@ -6,9 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 
-
 class ApiService {
-  static const String baseUrl = "http://127.0.0.1:8000/api";
+  static const String baseUrl = "https://kgz17l6w-8000.inc1.devtunnels.ms/api";
 
   // ── Save token locally ───────────────────────────────────
   static Future<void> saveToken(String token) async {
@@ -192,24 +191,69 @@ class ApiService {
 
     return json.decode(response.body) as Map<String, dynamic>;
   }
-static Future<List<Map<String, dynamic>>> getMyBookings() async {
-  final response = await http.get(
-    Uri.parse('$baseUrl/bookings/my-bookings/'),
-    headers: await _authHeaders(),
-  );
 
-  if (response.statusCode != 200) {
-    throw Exception('Failed to load bookings (${response.statusCode}).');
+  static Future<List<Map<String, dynamic>>> getMyBookings() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/bookings/my-bookings/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load bookings (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return [];
+    }
+
+    final List data = json.decode(response.body);
+
+    return data.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  if (response.body.isEmpty) {
-    return [];
+  static Future<Map<String, dynamic>> getBookingDetails(int bookingId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/bookings/$bookingId/'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load booking details (${response.statusCode}).',
+      );
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
-  final List data = json.decode(response.body);
+  static Future<Map<String, dynamic>> getPaymentByBooking(int bookingId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/payments/booking/$bookingId/'),
+      headers: await _authHeaders(),
+    );
 
-  return data.map((e) => Map<String, dynamic>.from(e)).toList();
-}
+    if (response.statusCode == 404) {
+      // No payment found for this booking
+      return {};
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load payment details (${response.statusCode}).',
+      );
+    }
+
+    if (response.body.isEmpty) {
+      return {};
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
   static Future<List<dynamic>> getMyPayments() async {
     final response = await http.get(
       Uri.parse('$baseUrl/payments/my-payments/'),
@@ -306,44 +350,44 @@ static Future<List<Map<String, dynamic>>> getMyBookings() async {
     return null;
   }
 
-  
   // =========================
   // CREATE Provider
   // =========================
-static Future<Map<String, dynamic>> createProvider({
-  required Map<String, dynamic> data,
-  Uint8List? imageBytes,
-  String? imageFileName,
-}) async {
- final request = http.MultipartRequest(
-  'POST',
-  Uri.parse('$baseUrl/providers/'),  // <-- was /providers/create/
-);
-
-  data.forEach((key, value) {
-    request.fields[key] = value.toString();
-  });
-
-  if (imageBytes != null) {
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'image',
-        imageBytes,
-        filename: imageFileName ?? 'profile.jpg',
-        contentType: MediaType('image', 'jpeg'),
-      ),
+  static Future<Map<String, dynamic>> createProvider({
+    required Map<String, dynamic> data,
+    Uint8List? imageBytes,
+    String? imageFileName,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/providers/'), // <-- was /providers/create/
     );
+
+    data.forEach((key, value) {
+      request.fields[key] = value.toString();
+    });
+
+    if (imageBytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: imageFileName ?? 'profile.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
+
+    print('CREATE PROVIDER STATUS: ${response.statusCode}'); // ADD THIS
+    print('CREATE PROVIDER BODY: $body'); // ADD THIS
+
+    return jsonDecode(body);
   }
 
-  final response = await request.send();
-  final body = await response.stream.bytesToString();
-  
-  print('CREATE PROVIDER STATUS: ${response.statusCode}'); // ADD THIS
-  print('CREATE PROVIDER BODY: $body');                    // ADD THIS
-  
-  return jsonDecode(body);
-}
-   // =========================
+  // =========================
   // PROVIDERS
   // =========================
   static Future<Map<String, dynamic>> getProviderById(int providerId) async {
@@ -435,44 +479,45 @@ static Future<Map<String, dynamic>> createProvider({
 
     return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
-static Future<Map<String, dynamic>> createProviderCertificate(
-  int providerId, {
-  required Map<String, String> data,
-  required Uint8List imageBytes,
-  String? imageName,
-}) async {
-  final request = http.MultipartRequest(
-    'POST',
-    Uri.parse("$baseUrl/providers/$providerId/certificates/"),
-  );
 
-  // Add text fields
-  data.forEach((key, value) {
-    request.fields[key] = value;
-  });
+  static Future<Map<String, dynamic>> createProviderCertificate(
+    int providerId, {
+    required Map<String, String> data,
+    required Uint8List imageBytes,
+    String? imageName,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse("$baseUrl/providers/$providerId/certificates/"),
+    );
 
-  // Add image from bytes
-  request.files.add(
-    http.MultipartFile.fromBytes(
-      'image',
-      imageBytes,
-      filename: imageName ?? 'certificate.jpg',
-    ),
-  );
+    // Add text fields
+    data.forEach((key, value) {
+      request.fields[key] = value;
+    });
 
-  final response = await request.send();
-  final body = await response.stream.bytesToString();
+    // Add image from bytes
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'image',
+        imageBytes,
+        filename: imageName ?? 'certificate.jpg',
+      ),
+    );
 
-  if (response.statusCode != 201) {
-    throw Exception(_formatError(body, response.statusCode));
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
+
+    if (response.statusCode != 201) {
+      throw Exception(_formatError(body, response.statusCode));
+    }
+
+    if (body.isEmpty) {
+      return {};
+    }
+
+    return _decodeMap(body);
   }
-
-  if (body.isEmpty) {
-    return {};
-  }
-
-  return _decodeMap(body);
-}
 
   static Future<void> deleteProviderCertificate(
     int providerId,
@@ -556,10 +601,7 @@ static Future<Map<String, dynamic>> createProviderCertificate(
     required String email,
     required String otpCode,
   }) async {
-    return _postJson('/auth/2fa/login/', {
-      'email': email,
-      'otp_code': otpCode,
-    });
+    return _postJson('/auth/2fa/login/', {'email': email, 'otp_code': otpCode});
   }
 
   static Future<Map<String, dynamic>> resetPasswordByContact({
@@ -696,22 +738,22 @@ static Future<Map<String, dynamic>> createProviderCertificate(
   }
 
   static Future<Map<String, dynamic>> updateBookingStatus(
-  int bookingId,
-  String status,
-) async {
-  final response = await http.patch(
-    Uri.parse('$baseUrl/bookings/$bookingId/update/'), // <-- add /update/
-    headers: await _authHeaders(),
-    body: json.encode({'status': status}),
-  );
+    int bookingId,
+    String status,
+  ) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/bookings/$bookingId/update/'), // <-- add /update/
+      headers: await _authHeaders(),
+      body: json.encode({'status': status}),
+    );
 
-  print('UPDATE STATUS: ${response.statusCode}');
-  print('UPDATE BODY: ${response.body}');
+    print('UPDATE STATUS: ${response.statusCode}');
+    print('UPDATE BODY: ${response.body}');
 
-  if (response.statusCode != 200) {
-    throw Exception('Failed to update booking (${response.statusCode}).');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update booking (${response.statusCode}).');
+    }
+
+    return json.decode(response.body) as Map<String, dynamic>;
   }
-
-  return json.decode(response.body) as Map<String, dynamic>;
-}
 }

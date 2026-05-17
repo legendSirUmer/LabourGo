@@ -74,7 +74,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
     }
   }
 
- Future<void> _acceptBooking(int bookingId) async {
+  Future<void> _acceptBooking(int bookingId) async {
     try {
       await ApiService.updateBookingStatus(bookingId, 'accepted');
       if (!mounted) return;
@@ -87,9 +87,9 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
       _loadBookings();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to accept: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to accept: $e')));
     }
   }
 
@@ -107,9 +107,9 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
       _loadBookings();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
@@ -131,9 +131,11 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
   String _formatStatus(String status) {
     final words = status.split('_');
     return words
-        .map((word) => word.isEmpty
-            ? word
-            : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -141,20 +143,33 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading ? _buildLoader() : _buildContent(),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          // Swipe left -> Customer Home
+          if (velocity < -300) {
+            Navigator.pushNamed(context, '/home');
+          }
+          // Swipe right -> Profile
+          else if (velocity > 300) {
+            Navigator.pushNamed(context, '/profile');
+          }
+        },
+        child: _loading ? _buildLoader() : _buildContent(),
+      ),
       bottomNavigationBar: ProviderBottomNavigation(
         currentIndex: 2,
         onTap: (index) {
           if (index == 2) return;
           switch (index) {
             case 0:
-              Navigator.pushReplacementNamed(context, '/provider_dashboard');
+              Navigator.pushNamed(context, '/provider_dashboard');
               break;
             case 1:
-              Navigator.pushReplacementNamed(context, '/profile');
+              Navigator.pushNamed(context, '/profile');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/home');
+              Navigator.pushNamed(context, '/home');
               break;
           }
         },
@@ -313,7 +328,9 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(20),
@@ -349,8 +366,10 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
 
   Widget _buildSummaryCard() {
     final pendingCount = _bookings
-        .where((item) =>
-            (item['status'] ?? '').toString().toLowerCase() == 'pending')
+        .where(
+          (item) =>
+              (item['status'] ?? '').toString().toLowerCase() == 'pending',
+        )
         .length;
 
     return Container(
@@ -438,8 +457,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
               ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F2FB),
                 borderRadius: BorderRadius.circular(10),
@@ -523,8 +541,8 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
     final customer = booking['customer'] as Map<String, dynamic>?;
     final customerName = (customer?['full_name'] ?? 'Customer').toString();
     final customerPhone = (customer?['phone'] ?? 'N/A').toString();
-    final address =
-        (booking['location_address'] ?? 'Address not available').toString();
+    final address = (booking['location_address'] ?? 'Address not available')
+        .toString();
     final status = (booking['status'] ?? 'pending').toString();
     final category = booking['category'] as Map<String, dynamic>?;
     final serviceName = (category?['name'] ?? 'Service').toString();
@@ -551,12 +569,12 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
         children: [
           // ── Status bar ──
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.08),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Row(
               children: [
@@ -582,7 +600,9 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                 if (price != null && price.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -666,8 +686,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                   label: 'Address',
                   value: address,
                 ),
-                if (scheduledDate.isNotEmpty ||
-                    scheduledTime.isNotEmpty) ...[
+                if (scheduledDate.isNotEmpty || scheduledTime.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _BookingDetailRow(
                     icon: Icons.schedule_outlined,
@@ -678,7 +697,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                   ),
                 ],
 
-               // ── Accept button ──
+                // ── Accept button ──
                 if (isPending && bookingId != null) ...[
                   const SizedBox(height: 16),
                   SizedBox(
@@ -711,7 +730,8 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                 ],
 
                 // ── Start Job button ──
-                if (status.toLowerCase() == 'accepted' && bookingId != null) ...[
+                if (status.toLowerCase() == 'accepted' &&
+                    bookingId != null) ...[
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -759,8 +779,11 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.hourglass_top_rounded,
-                            size: 16, color: Color(0xFF2AB0BC)),
+                        Icon(
+                          Icons.hourglass_top_rounded,
+                          size: 16,
+                          color: Color(0xFF2AB0BC),
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Waiting for customer to confirm completion',
@@ -789,8 +812,7 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
       decoration: BoxDecoration(
         color: const Color(0xFFFCEBEB),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: const Color(0xFFF09595), width: 0.5),
+        border: Border.all(color: const Color(0xFFF09595), width: 0.5),
       ),
       child: Row(
         children: [

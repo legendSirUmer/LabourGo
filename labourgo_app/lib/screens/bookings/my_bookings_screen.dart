@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../payments/payment_screen.dart';
 import '../reviews/review_screen.dart';
@@ -43,10 +44,27 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       });
     }
     try {
+      final prefs = await SharedPreferences.getInstance();
       final bookings = await ApiService.getMyBookings();
+      final isProvider = prefs.getBool('is_provider_signed_in') ?? false;
+      final providerId = prefs.getInt('provider_id');
+      final userEmail = prefs.getString('user_email') ?? '';
+      final userPhone = prefs.getString('user_phone') ?? '';
+      final visibleBookings = isProvider
+          ? bookings
+                .where(
+                  (booking) => !_isOwnProviderBooking(
+                    booking,
+                    providerId,
+                    userEmail,
+                    userPhone,
+                  ),
+                )
+                .toList(growable: false)
+          : bookings;
       if (!mounted) return;
       setState(() {
-        _bookings = bookings;
+        _bookings = visibleBookings;
         _loading = false;
       });
     } catch (e) {
@@ -56,6 +74,40 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         _error = 'Could not load bookings. Pull to refresh.';
       });
     }
+  }
+
+  bool _isOwnProviderBooking(
+    dynamic booking,
+    int? providerId,
+    String userEmail,
+    String userPhone,
+  ) {
+    if (booking is! Map) return false;
+
+    final provider = booking['provider'];
+    if (provider is! Map) return false;
+
+    final bookingProviderId = int.tryParse(provider['id']?.toString() ?? '');
+    if (providerId != null && bookingProviderId == providerId) {
+      return true;
+    }
+
+    final normalizedUserEmail = userEmail.trim().toLowerCase();
+    final normalizedProviderEmail = (provider['email'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (normalizedUserEmail.isNotEmpty &&
+        normalizedProviderEmail == normalizedUserEmail) {
+      return true;
+    }
+
+    final normalizedUserPhone = userPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    final normalizedProviderPhone = (provider['phone'] ?? '')
+        .toString()
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    return normalizedUserPhone.isNotEmpty &&
+        normalizedProviderPhone == normalizedUserPhone;
   }
 
   Color _statusColor(String status) {

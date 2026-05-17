@@ -34,6 +34,3 @@ urlpatterns = [
     path('admin/stats/',  AdminStatsView.as_view(),    name='admin-stats'),
 ]
 
-
-
-
