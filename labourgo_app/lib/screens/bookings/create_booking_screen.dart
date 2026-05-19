@@ -536,7 +536,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       hintText: 'e.g. 1500',
-                      prefixIcon: const Icon(Icons.attach_money),
+                      prefixIcon: const Icon(Icons.payments_rounded),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

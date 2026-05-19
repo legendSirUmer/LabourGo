@@ -1111,7 +1111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  '🎉 First Booking Free!',
+                                  'First Booking Free!',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,

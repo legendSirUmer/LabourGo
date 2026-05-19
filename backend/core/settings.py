@@ -27,6 +27,7 @@ ALLOWED_HOSTS = ['*']  # We'll restrict this in production
 
 # ─── Apps ───────────────────────────────────────────────
 INSTALLED_APPS = [
+    'daphne',  # Must be first for ASGI
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'channels',
 
     # Your apps
     'accounts',
@@ -46,6 +48,7 @@ INSTALLED_APPS = [
     'reviews',
     'payments',
     'providers',
+    'messaging',
 ]
 
 # ─── Middleware ──────────────────────────────────────────
@@ -171,3 +174,28 @@ FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET', '')
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# ─── Django Channels (WebSocket) ────────────────────────
+ASGI_APPLICATION = 'core.asgi.application'
+
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    # Local development without Redis
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
+
+# To use Redis locally, set REDIS_URL in backend/.env or environment:
+# REDIS_URL=redis://127.0.0.1:6379

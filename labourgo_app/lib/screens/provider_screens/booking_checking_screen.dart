@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../widgets/provider_bottom_navigation.dart';
+import '../messaging/chat_screen.dart';
 
 class AppColors {
   static const primary = Color(0xFF4682B4);
@@ -696,6 +697,37 @@ class _BookingCheckingScreenState extends State<BookingCheckingScreen>
                             .trim(),
                   ),
                 ],
+
+                // ── Message button (always visible) ──
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          bookingId: bookingId is int
+                              ? bookingId
+                              : int.tryParse(bookingId.toString()) ?? 0,
+                          otherUserName: customerName,
+                          otherUserAvatar:
+                              booking['customer']?['avatar'] as String?,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    label: const Text('Message Customer'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF4682B4)),
+                      foregroundColor: const Color(0xFF4682B4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
 
                 // ── Accept button ──
                 if (isPending && bookingId != null) ...[

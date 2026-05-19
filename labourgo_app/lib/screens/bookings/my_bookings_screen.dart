@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../payments/payment_screen.dart';
 import '../reviews/review_screen.dart';
+import '../messaging/chat_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   final bool embedded;
@@ -112,23 +113,31 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'pending':     return Colors.orange;
-      case 'accepted':    return Colors.blue;
-      case 'in_progress': return Colors.purple;
-      case 'completed':   return Colors.green;
-      case 'cancelled':   return Colors.red;
-      default:            return Colors.grey;
+      case 'pending':
+        return Colors.orange;
+      case 'accepted':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.purple;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: widget.embedded ? null : AppBar(
-        title: const Text('My Bookings'),
-        backgroundColor: const Color(0xFF4682B4),
-        foregroundColor: Colors.white,
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('My Bookings'),
+              backgroundColor: const Color(0xFF4682B4),
+              foregroundColor: Colors.white,
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -207,10 +216,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: _statusColor(b['status'])
-                                            .withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
+                                        color: _statusColor(
+                                          b['status'],
+                                        ).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         b['status'].toString().toUpperCase(),
@@ -227,14 +236,17 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                 // Provider
                                 Row(
                                   children: [
-                                    const Icon(Icons.person_outline,
-                                        size: 16, color: Colors.grey),
+                                    const Icon(
+                                      Icons.person_outline,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      b['provider']?['full_name'] ??
-                                          'Provider',
+                                      b['provider']?['full_name'] ?? 'Provider',
                                       style: const TextStyle(
-                                          color: Colors.grey),
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -242,13 +254,17 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                 // Date
                                 Row(
                                   children: [
-                                    const Icon(Icons.calendar_today,
-                                        size: 16, color: Colors.grey),
+                                    const Icon(
+                                      Icons.calendar_today,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${b['scheduled_date']} at ${b['scheduled_time']}',
                                       style: const TextStyle(
-                                          color: Colors.grey),
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -256,18 +272,55 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                 // Location
                                 Row(
                                   children: [
-                                    const Icon(Icons.location_on_outlined,
-                                        size: 16, color: Colors.grey),
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         b['location_address'] ?? '',
                                         style: const TextStyle(
-                                            color: Colors.grey),
+                                          color: Colors.grey,
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
+                                ),
+
+                                // ── Message button (always visible) ──
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 44,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatScreen(
+                                          bookingId: b['id'],
+                                          otherUserName:
+                                              b['provider']?['full_name'] ??
+                                              'Provider',
+                                          otherUserAvatar:
+                                              b['provider']?['avatar'],
+                                        ),
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.chat_bubble_outline,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Message'),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                        color: Color(0xFF4682B4),
+                                      ),
+                                      foregroundColor: const Color(0xFF4682B4),
+                                    ),
+                                  ),
                                 ),
 
                                 // ── In Progress: Customer confirms completion ──
@@ -278,8 +331,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                     height: 44,
                                     child: ElevatedButton.icon(
                                       onPressed: () async {
-                                        final confirm =
-                                            await showDialog<bool>(
+                                        final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (_) => AlertDialog(
                                             shape: RoundedRectangleBorder(
@@ -287,30 +339,34 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                                   BorderRadius.circular(16),
                                             ),
                                             title: const Text(
-                                                'Confirm Completion'),
+                                              'Confirm Completion',
+                                            ),
                                             content: const Text(
                                               'Are you sure the job has been completed?',
                                             ),
                                             actions: [
                                               TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(
-                                                        context, false),
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
                                                 child: const Text('Cancel'),
                                               ),
                                               ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(
-                                                        context, true),
-                                                style:
-                                                    ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFF4682B4),
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(
+                                                    0xFF4682B4,
+                                                  ),
                                                 ),
                                                 child: const Text(
                                                   'Yes, Completed',
                                                   style: TextStyle(
-                                                      color: Colors.white),
+                                                    color: Colors.white,
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -319,35 +375,37 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
                                         if (confirm == true) {
                                           try {
-                                            await ApiService
-                                                .updateBookingStatus(
+                                            await ApiService.updateBookingStatus(
                                               b['id'],
                                               'completed',
                                             );
                                             _loadBookings();
                                           } catch (e) {
                                             if (!mounted) return;
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               SnackBar(
-                                                content:
-                                                    Text('Failed: $e'),
+                                                content: Text('Failed: $e'),
                                               ),
                                             );
                                           }
                                         }
                                       },
                                       icon: const Icon(
-                                          Icons.done_all_rounded,
-                                          size: 16),
+                                        Icons.done_all_rounded,
+                                        size: 16,
+                                      ),
                                       label: const Text('Job Completed'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF4682B4),
+                                        backgroundColor: const Color(
+                                          0xFF4682B4,
+                                        ),
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -366,25 +424,28 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                             MaterialPageRoute(
                                               builder: (_) => PaymentScreen(
                                                 bookingId: b['id'],
-                                                amount: b['price_offered']
+                                                amount:
+                                                    b['price_offered']
                                                         ?.toString() ??
                                                     '0',
                                                 providerName:
-                                                    b['provider']?[
-                                                            'full_name'] ??
-                                                        'Provider',
+                                                    b['provider']?['full_name'] ??
+                                                    'Provider',
                                                 serviceName:
                                                     b['category']?['name'] ??
-                                                        'Service',
+                                                    'Service',
                                               ),
                                             ),
                                           ),
-                                          icon: const Icon(Icons.payment,
-                                              size: 16),
+                                          icon: const Icon(
+                                            Icons.payment,
+                                            size: 16,
+                                          ),
                                           label: const Text('Pay'),
                                           style: OutlinedButton.styleFrom(
-                                            foregroundColor:
-                                                const Color(0xFF4682B4),
+                                            foregroundColor: const Color(
+                                              0xFF4682B4,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -399,12 +460,15 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                               ),
                                             ),
                                           ),
-                                          icon: const Icon(Icons.star,
-                                              size: 16),
+                                          icon: const Icon(
+                                            Icons.star,
+                                            size: 16,
+                                          ),
                                           label: const Text('Review'),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFF4682B4),
+                                            backgroundColor: const Color(
+                                              0xFF4682B4,
+                                            ),
                                             foregroundColor: Colors.white,
                                           ),
                                         ),

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 
 class ApiService {
@@ -37,6 +36,47 @@ class ApiService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  static String _resolveUrl(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    if (path.startsWith('/api/') && baseUrl.endsWith('/api')) {
+      return '$baseUrl${path.substring(4)}';
+    }
+
+    if (path.startsWith('/api/') && !baseUrl.endsWith('/api')) {
+      return '$_apiRoot$path';
+    }
+
+    if (path.startsWith('/')) {
+      return '$baseUrl$path';
+    }
+
+    return '$baseUrl/$path';
+  }
+
+  static Future<dynamic> getRequest(
+    String path, {
+    bool authenticated = true,
+  }) async {
+    final url = _resolveUrl(path);
+    final headers = authenticated
+        ? await _authHeaders()
+        : const {'Accept': 'application/json'};
+
+    final response = await http.get(Uri.parse(url), headers: headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('GET request failed ($url): ${response.statusCode}');
+    }
+
+    if (response.body.isEmpty) {
+      return null;
+    }
+
+    return json.decode(response.body);
   }
 
   static String get _apiRoot {
