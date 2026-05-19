@@ -1017,7 +1017,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     decoration: InputDecoration(
                                       isDense: true,
-                                      border: InputBorder.none,
+                                      filled: true,
+                                      fillColor: Colors.white.withOpacity(0.15),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
                                       hintText: 'Search services or providers',
                                       hintStyle: TextStyle(
                                         color: Colors.white.withOpacity(0.8),

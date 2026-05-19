@@ -15,7 +15,7 @@ class WebSocketService {
     _token = prefs.getString('access_token');
 
     final wsUrl = Uri.parse(
-      'http://kgz17l6w-8000.inc1.devtunnels.ms/ws/chat/$_bookingId/?token=$_token',
+      'https://labourgo.onrender.com/ws/chat/$_bookingId/?token=$_token',
     );
 
     _channel = WebSocketChannel.connect(wsUrl);
