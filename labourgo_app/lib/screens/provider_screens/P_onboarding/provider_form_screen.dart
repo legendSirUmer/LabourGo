@@ -172,16 +172,21 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.camera_alt_rounded,
-                              color: _kBlue, size: 32),
+                          Icon(
+                            Icons.camera_alt_rounded,
+                            color: _kBlue,
+                            size: 32,
+                          ),
                           SizedBox(height: 8),
-                          Text('Camera',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _kBlue,
-                                fontFamily: 'Poppins',
-                              )),
+                          Text(
+                            'Camera',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _kBlue,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -201,20 +206,27 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                         color: _kCyan.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                            color: _kCyan.withOpacity(0.4), width: 1.2),
+                          color: _kCyan.withOpacity(0.4),
+                          width: 1.2,
+                        ),
                       ),
                       child: Column(
                         children: [
-                          Icon(Icons.photo_library_rounded,
-                              color: _kCyan.withOpacity(0.9), size: 32),
+                          Icon(
+                            Icons.photo_library_rounded,
+                            color: _kCyan.withOpacity(0.9),
+                            size: 32,
+                          ),
                           const SizedBox(height: 8),
-                          Text('Gallery',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _kCyan.withOpacity(0.9),
-                                fontFamily: 'Poppins',
-                              )),
+                          Text(
+                            'Gallery',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _kCyan.withOpacity(0.9),
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -253,103 +265,103 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
     );
   }
 
- void _submit() async {
-  setState(() {
-    _workTypeTouched = true;
-    _cityTouched = true;
-  });
+  void _submit() async {
+    setState(() {
+      _workTypeTouched = true;
+      _cityTouched = true;
+    });
 
-  final formValid = _formKey.currentState?.validate() ?? false;
+    final formValid = _formKey.currentState?.validate() ?? false;
 
-  if (!formValid || !_workTypeSelected || !_citySelected) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Please fill all fields")),
-    );
-    return;
-  }
+    if (!formValid || !_workTypeSelected || !_citySelected) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
 
-  if (_profileImageBytes == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Please upload a profile photo")),
-    );
-    return;
-  }
-
-  try {
-    final cleanPhone = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final experienceYears = int.tryParse(experience.text.trim());
-    final priceValue = double.tryParse(pricePerHour.text.trim());
-
-    if (experienceYears == null || priceValue == null) {
+    if (_profileImageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter valid numeric values")),
+        const SnackBar(content: Text("Please upload a profile photo")),
       );
       return;
     }
 
-    final existing = await ApiService.findProviderByEmailPhone(
-      email.text.trim(),
-      cleanPhone,
-    );
+    try {
+      final cleanPhone = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final experienceYears = int.tryParse(experience.text.trim());
+      final priceValue = double.tryParse(pricePerHour.text.trim());
 
-    if (existing != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Provider already registered")),
-      );
-      return;
-    }
-
-    final created = await ApiService.createProvider(
-  data: {
-    "name": name.text.trim(),
-    "email": email.text.trim(),
-    "phone": cleanPhone,
-    "skills": workType,
-    "experience": experienceYears,
-    "price_per_hour": priceValue,
-  },
-  imageBytes: _profileImageBytes,     // <-- use bytes
-  imageFileName: 'profile.jpg',       // <-- give it a name
-);
-    // ✅ IMPORTANT FIX — SAVE USER DATA
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_email', email.text.trim());
-    await prefs.setString('user_phone', cleanPhone);
-    await prefs.setString('user_name', name.text.trim());
-    final providerId = created['id'];
-    if (providerId is int) {
-      await prefs.setInt('provider_id', providerId);
-    } else if (providerId is String) {
-      final parsed = int.tryParse(providerId);
-      if (parsed != null) {
-        await prefs.setInt('provider_id', parsed);
+      if (experienceYears == null || priceValue == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter valid numeric values")),
+        );
+        return;
       }
-    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Form Submitted Successfully"),
-        backgroundColor: _kSuccess,
-      ),
-    );
+      final existing = await ApiService.findProviderByEmailPhone(
+        email.text.trim(),
+        cleanPhone,
+      );
 
-    if (!mounted) return;
+      if (existing != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Provider already registered")),
+        );
+        return;
+      }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ProviderApprovalPendingScreen(
-          email: email.text.trim(),
-          phone: phone.text.trim(),
+      final created = await ApiService.createProvider(
+        data: {
+          "name": name.text.trim(),
+          "email": email.text.trim(),
+          "phone": cleanPhone,
+          "skills": workType,
+          "experience": experienceYears,
+          "price_per_hour": priceValue,
+        },
+        imageBytes: _profileImageBytes, // <-- use bytes
+        imageFileName: 'profile.jpg', // <-- give it a name
+      );
+      // ✅ IMPORTANT FIX — SAVE USER DATA
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_email', email.text.trim());
+      await prefs.setString('user_phone', cleanPhone);
+      await prefs.setString('user_name', name.text.trim());
+      final providerId = created['id'];
+      if (providerId is int) {
+        await prefs.setInt('provider_id', providerId);
+      } else if (providerId is String) {
+        final parsed = int.tryParse(providerId);
+        if (parsed != null) {
+          await prefs.setInt('provider_id', parsed);
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Form Submitted Successfully"),
+          backgroundColor: _kSuccess,
         ),
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $e")),
-    );
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _ProviderApprovalPendingScreen(
+            email: email.text.trim(),
+            phone: phone.text.trim(),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -367,8 +379,11 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               color: _kBg,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: _kBlue, size: 18),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _kBlue,
+              size: 18,
+            ),
           ),
         ),
         title: const Text(
@@ -417,26 +432,35 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                       color: _kWhite.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person_add_rounded,
-                        color: _kWhite, size: 22),
+                    child: const Icon(
+                      Icons.person_add_rounded,
+                      color: _kWhite,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Worker Registration',
-                            style: TextStyle(
-                                color: _kWhite,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'Poppins')),
+                        Text(
+                          'Worker Registration',
+                          style: TextStyle(
+                            color: _kWhite,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                         SizedBox(height: 2),
-                        Text('All fields marked * are required',
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontFamily: 'Poppins')),
+                        Text(
+                          'All fields marked * are required',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -469,8 +493,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                             ),
                             image: _profileImageBytes != null
                                 ? DecorationImage(
-                                    image:
-                                        MemoryImage(_profileImageBytes!),
+                                    image: MemoryImage(_profileImageBytes!),
                                     fit: BoxFit.cover,
                                   )
                                 : null,
@@ -479,9 +502,11 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.person_rounded,
-                                        color: _kBlue.withOpacity(0.4),
-                                        size: 40),
+                                    Icon(
+                                      Icons.person_rounded,
+                                      color: _kBlue.withOpacity(0.4),
+                                      size: 40,
+                                    ),
                                   ],
                                 )
                               : null,
@@ -496,11 +521,13 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                             decoration: BoxDecoration(
                               color: _kBlue,
                               shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: _kWhite, width: 2),
+                              border: Border.all(color: _kWhite, width: 2),
                             ),
-                            child: const Icon(Icons.camera_alt_rounded,
-                                color: _kWhite, size: 14),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              color: _kWhite,
+                              size: 14,
+                            ),
                           ),
                         ),
                       ],
@@ -554,8 +581,7 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               validator: (v) {
                 if (v == null || v.trim().isEmpty)
                   return 'Phone number is required';
-                final clean =
-                    v.replaceAll('-', '').replaceAll(' ', '');
+                final clean = v.replaceAll('-', '').replaceAll(' ', '');
                 if (!RegExp(r'^03[0-9]{9}$').hasMatch(clean)) {
                   return 'Enter a valid Pakistani number (03XX-XXXXXXX)';
                 }
@@ -571,10 +597,10 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               validator: (v) {
-                if (v == null || v.trim().isEmpty)
-                  return 'Email is required';
-                if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$')
-                    .hasMatch(v.trim())) {
+                if (v == null || v.trim().isEmpty) return 'Email is required';
+                if (!RegExp(
+                  r'^[\w\.-]+@[\w\.-]+\.\w{2,}$',
+                ).hasMatch(v.trim())) {
                   return 'Enter a valid email address';
                 }
                 return null;
@@ -590,10 +616,8 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               icon: Icons.credit_card_rounded,
               keyboardType: TextInputType.number,
               validator: (v) {
-                if (v == null || v.trim().isEmpty)
-                  return 'CNIC is required';
-                final clean =
-                    v.replaceAll('-', '').replaceAll(' ', '');
+                if (v == null || v.trim().isEmpty) return 'CNIC is required';
+                final clean = v.replaceAll('-', '').replaceAll(' ', '');
                 if (!RegExp(r'^\d{13}$').hasMatch(clean)) {
                   return 'Enter a valid 13-digit CNIC (XXXXX-XXXXXXX-X)';
                 }
@@ -648,7 +672,9 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               label: 'Price Per Hour (PKR) *',
               hint: 'e.g. 1500',
               icon: Icons.price_change_outlined,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
@@ -687,18 +713,18 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
               height: 52,
               child: ElevatedButton(
                 onPressed: _submit,
-//          onPressed: () async {
-//   await ApiService.createProvider({
-//     "name": name.text,
-//     "email": email.text,
-//     "phone": phone.text,
-//     "skills": workType,
-//     "experience": int.parse(experience.text),
-//     "price_per_hour": 0,
-//   });
+                //          onPressed: () async {
+                //   await ApiService.createProvider({
+                //     "name": name.text,
+                //     "email": email.text,
+                //     "phone": phone.text,
+                //     "skills": workType,
+                //     "experience": int.parse(experience.text),
+                //     "price_per_hour": 0,
+                //   });
 
-//   Navigator.pushNamed(context, '/provider_dashboard');
-// },
+                //   Navigator.pushNamed(context, '/provider_dashboard');
+                // },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kBlue,
                   foregroundColor: _kWhite,
@@ -710,13 +736,15 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Submit Application',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Poppins',
-                          letterSpacing: 0.3,
-                        )),
+                    Text(
+                      'Submit Application',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Poppins',
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                     SizedBox(width: 8),
                     Icon(Icons.arrow_forward_rounded, size: 17),
                   ],
@@ -739,7 +767,9 @@ class _ProviderFormScreenState extends State<ProviderFormScreen> {
 class CnicInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue old, TextEditingValue newVal) {
+    TextEditingValue old,
+    TextEditingValue newVal,
+  ) {
     final digits = newVal.text.replaceAll(RegExp(r'[^0-9]'), '');
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length && i < 13; i++) {
@@ -774,13 +804,15 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: _kBlue,
-              fontFamily: 'Poppins',
-            )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: _kBlue,
+            fontFamily: 'Poppins',
+          ),
+        ),
       ],
     );
   }
@@ -813,13 +845,15 @@ class _ValidatedField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _kBlue,
-              fontFamily: 'Poppins',
-            )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _kBlue,
+            fontFamily: 'Poppins',
+          ),
+        ),
         const SizedBox(height: 5),
         TextFormField(
           controller: controller,
@@ -835,12 +869,17 @@ class _ValidatedField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(
-                color: _kSubText, fontSize: 13, fontFamily: 'Poppins'),
+              color: _kSubText,
+              fontSize: 13,
+              fontFamily: 'Poppins',
+            ),
             prefixIcon: Icon(icon, color: _kBlue, size: 19),
             filled: true,
             fillColor: _kWhite,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 13,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: _kBorder, width: 1.2),
@@ -898,20 +937,21 @@ class _SelectorField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _kBlue,
-              fontFamily: 'Poppins',
-            )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _kBlue,
+            fontFamily: 'Poppins',
+          ),
+        ),
         const SizedBox(height: 5),
         GestureDetector(
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
               color: _kWhite,
               borderRadius: BorderRadius.circular(14),
@@ -919,38 +959,42 @@ class _SelectorField extends StatelessWidget {
                 color: hasError
                     ? _kError
                     : isSelected
-                        ? _kBlue
-                        : _kBorder,
+                    ? _kBlue
+                    : _kBorder,
                 width: isSelected || hasError ? 1.8 : 1.2,
               ),
             ),
             child: Row(
               children: [
-                Icon(icon,
-                    color: hasError
-                        ? _kError
-                        : isSelected
-                            ? _kBlue
-                            : _kSubText,
-                    size: 19),
+                Icon(
+                  icon,
+                  color: hasError
+                      ? _kError
+                      : isSelected
+                      ? _kBlue
+                      : _kSubText,
+                  size: 19,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(value,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSelected
-                            ? const Color(0xFF1A2A3A)
-                            : _kSubText,
-                        fontFamily: 'Poppins',
-                      )),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isSelected ? const Color(0xFF1A2A3A) : _kSubText,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
                 ),
-                Icon(Icons.keyboard_arrow_down_rounded,
-                    color: hasError
-                        ? _kError
-                        : isSelected
-                            ? _kBlue
-                            : _kSubText,
-                    size: 20),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: hasError
+                      ? _kError
+                      : isSelected
+                      ? _kBlue
+                      : _kSubText,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -975,12 +1019,14 @@ class _ErrorText extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, color: _kError, size: 13),
           const SizedBox(width: 4),
-          Text(text,
-              style: const TextStyle(
-                fontSize: 11,
-                color: _kError,
-                fontFamily: 'Poppins',
-              )),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              color: _kError,
+              fontFamily: 'Poppins',
+            ),
+          ),
         ],
       ),
     );
@@ -1028,7 +1074,7 @@ class _ProviderApprovalPendingScreenState
       final status = (provider['verification_status'] ?? '').toString();
       if (status == 'approved') {
         final prefs = await SharedPreferences.getInstance();
-        final providerId = provider['id'];
+        final providerId = provider['provider_model_id'] ?? provider['id'];
         if (providerId is int) {
           await prefs.setInt('provider_id', providerId);
         } else if (providerId is String) {
@@ -1050,9 +1096,9 @@ class _ProviderApprovalPendingScreenState
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Check failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Check failed: $e')));
     } finally {
       if (mounted) setState(() => _isChecking = false);
     }
@@ -1134,8 +1180,7 @@ class _ProviderApprovalPendingScreenState
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(_kWhite),
+                            valueColor: AlwaysStoppedAnimation<Color>(_kWhite),
                           ),
                         )
                       : const Text(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../auth/google_authenticator_screen.dart';
 import '../../widgets/provider_bottom_navigation.dart';
 
 // --------------------------------------------
@@ -44,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _saving = false;
   bool _imageUploading = false;
   bool _availabilitySaving = false;
+  bool _twoFactorEnabled = false;
   String? _error;
   String? _imageUrl;
   Uint8List? _selectedImageBytes;
@@ -88,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (email.isEmpty || phone.isEmpty) return null;
 
     final provider = await ApiService.findProviderByEmailPhone(email, phone);
-    final providerId = provider?['id'];
+    final providerId = provider?['provider_model_id'] ?? provider?['id'];
     if (providerId is int) {
       await prefs.setInt('provider_id', providerId);
       return providerId;
@@ -109,23 +111,50 @@ class _ProfileScreenState extends State<ProfileScreen>
       _error = null;
     });
     try {
+      final prefs = await SharedPreferences.getInstance();
       final providerId = await _resolveProviderId();
       if (providerId == null) {
         setState(() => _error = 'Provider not found. Please sign in again.');
         return;
       }
-      final data = await ApiService.getProviderById(providerId);
+      Map<String, dynamic>? data;
+      try {
+        data = await ApiService.getProviderById(providerId);
+      } catch (_) {
+        final email = prefs.getString('user_email') ?? '';
+        final phone = prefs.getString('user_phone') ?? '';
+        if (email.isNotEmpty && phone.isNotEmpty) {
+          final provider = await ApiService.findProviderByEmailPhone(
+            email,
+            phone,
+          );
+          final fallbackId = provider?['provider_model_id'] ?? provider?['id'];
+          if (fallbackId is int) {
+            await prefs.setInt('provider_id', fallbackId);
+            data = await ApiService.getProviderById(fallbackId);
+          }
+        }
+      }
+      if (data == null) {
+        setState(() => _error = 'Provider not found. Please sign in again.');
+        return;
+      }
+      final providerData = data;
+      final profile = await ApiService.getProfile();
       if (!mounted) return;
       setState(() {
         _providerId = providerId;
-        nameController.text = (data['name'] ?? '').toString();
-        skillsController.text = (data['skills'] ?? '').toString();
-        phoneController.text = (data['phone'] ?? '').toString();
-        emailController.text = (data['email'] ?? '').toString();
-        _imageUrl = ApiService.resolveImageUrl(data['image']?.toString());
+        nameController.text = (providerData['name'] ?? '').toString();
+        skillsController.text = (providerData['skills'] ?? '').toString();
+        phoneController.text = (providerData['phone'] ?? '').toString();
+        emailController.text = (providerData['email'] ?? '').toString();
+        _imageUrl = ApiService.resolveImageUrl(
+          providerData['image']?.toString(),
+        );
         _selectedImageBytes = null;
         _selectedImageName = null;
-        _isAvailable = _parseAvailability(data['availability']);
+        _isAvailable = _parseAvailability(providerData['availability']);
+        _twoFactorEnabled = profile['two_factor_enabled'] == true;
       });
       _fadeCtrl?.forward();
     } catch (e) {
@@ -133,6 +162,49 @@ class _ProfileScreenState extends State<ProfileScreen>
       setState(() => _error = 'Failed to load profile');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateTwoFactorEnabled(bool enabled) async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _showSnack(
+        'Please add an email address before enabling 2FA.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (enabled) {
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GoogleAuthenticatorScreen(
+            email: email,
+            setupMode: true,
+            returnToCallerOnSuccess: true,
+          ),
+        ),
+      );
+
+      if (result == true && mounted) {
+        setState(() => _twoFactorEnabled = true);
+        _showSnack('Two-factor authentication enabled.');
+      }
+      return;
+    }
+
+    if (!_twoFactorEnabled) return;
+
+    try {
+      await ApiService.updateProfile({'two_factor_enabled': false});
+      if (!mounted) return;
+      setState(() => _twoFactorEnabled = false);
+      _showSnack('Two-factor authentication disabled.');
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed to update 2FA status: $e', isError: true);
+      }
     }
   }
 
@@ -590,6 +662,56 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ),
                             ),
                           ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _FormCard(
+                      label: 'Security',
+                      children: [
+                        _FieldRow(
+                          iconBg: const Color(0xFFE8F2FB),
+                          icon: Icons.security_rounded,
+                          iconColor: const Color(0xFF2563EB),
+                          label: 'Two-Factor Authentication',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _twoFactorEnabled
+                                          ? 'Enabled'
+                                          : 'Disabled',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF1E3A5F),
+                                      ),
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: _twoFactorEnabled,
+                                    onChanged: _updateTwoFactorEnabled,
+                                    activeColor: AppColors.primary,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _twoFactorEnabled
+                                    ? 'Google Authenticator is active for login.'
+                                    : 'Tap the switch to set up Google Authenticator.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),

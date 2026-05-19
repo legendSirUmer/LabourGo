@@ -4,10 +4,7 @@ import 'email_phone_reset_screen.dart';
 import 'google_authenticator_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({
-    super.key,
-    this.initialEmail = '',
-  });
+  const ForgotPasswordScreen({super.key, this.initialEmail = ''});
 
   final String initialEmail;
 
@@ -19,11 +16,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String _selectedMethod = 'email';
   final TextEditingController _emailCtrl = TextEditingController();
 
-  Future<void> _openEmailPhoneReset() async {
-    final result = await Navigator.push(
+  Future<bool?> _openEmailPhoneReset({String? initialEmail}) async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => const EmailPhoneResetScreen(),
+        builder: (_) => EmailPhoneResetScreen(initialEmail: initialEmail ?? ''),
       ),
     );
     if (result == true && mounted) {
@@ -35,6 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
     }
+    return result;
   }
 
   @override
@@ -94,10 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             // Subtitle
             const Text(
               'Select which methods you\'d like to reset.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
             ),
 
             const SizedBox(height: 32),
@@ -150,22 +145,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: ElevatedButton(
                 onPressed: () async {
                   if (_selectedMethod == 'google') {
-                    final result = await Navigator.push(
+                    final email = _emailCtrl.text.trim();
+                    if (email.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter your email address.'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final result = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
                         builder: (_) => GoogleAuthenticatorScreen(
-                          email: _emailCtrl.text.trim(),
+                          email: email,
+                          setupMode: false,
+                          returnToCallerOnSuccess: true,
                         ),
                       ),
                     );
+
                     if (result == true && mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password reset successfully!'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
+                      await _openEmailPhoneReset(initialEmail: email);
                     }
                   } else {
                     await _openEmailPhoneReset();
@@ -249,9 +252,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 color: iconBg,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(
-                child: Icon(icon, color: iconColor, size: 28),
-              ),
+              child: Center(child: Icon(icon, color: iconColor, size: 28)),
             ),
 
             const SizedBox(width: 16),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../auth/google_authenticator_screen.dart';
 import '../../services/api_service.dart';
 import '../../theme/cust_theme.dart';
 
@@ -17,6 +18,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   bool _loading = false;
+  bool _twoFactorEnabled = false;
 
   @override
   void initState() {
@@ -30,6 +32,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController = TextEditingController(
       text: widget.initialProfile['phone'] ?? '',
     );
+    _twoFactorEnabled = widget.initialProfile['two_factor_enabled'] == true;
   }
 
   @override
@@ -65,6 +68,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleTwoFactor(bool enabled) async {
+    final email = _emailController.text.trim();
+    if (enabled) {
+      if (email.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email is required to enable 2FA.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GoogleAuthenticatorScreen(
+            email: email,
+            setupMode: true,
+            returnToCallerOnSuccess: true,
+          ),
+        ),
+      );
+
+      if (result == true && mounted) {
+        setState(() => _twoFactorEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Two-factor authentication enabled.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await ApiService.updateProfile({'two_factor_enabled': false});
+      if (!mounted) return;
+      setState(() => _twoFactorEnabled = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Two-factor authentication disabled.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to disable 2FA: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -151,7 +214,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 icon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: AppColors.border),
+                ),
+                elevation: 0,
+                child: SwitchListTile.adaptive(
+                  value: _twoFactorEnabled,
+                  onChanged: _toggleTwoFactor,
+                  title: const Text(
+                    'Enable Two-Factor Authentication',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    _twoFactorEnabled
+                        ? 'Google Authenticator is enabled for your account.'
+                        : 'Use Google Authenticator for extra security.',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  activeColor: AppColors.primary,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // Action Buttons
               Row(

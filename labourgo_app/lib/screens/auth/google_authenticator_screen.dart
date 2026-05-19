@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:qr/qr.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 import '../../services/api_service.dart';
 import '../../theme/cust_theme.dart';
@@ -10,9 +9,13 @@ class GoogleAuthenticatorScreen extends StatefulWidget {
   const GoogleAuthenticatorScreen({
     super.key,
     this.email = '',
+    this.setupMode = true,
+    this.returnToCallerOnSuccess = false,
   });
 
   final String email;
+  final bool setupMode;
+  final bool returnToCallerOnSuccess;
 
   @override
   State<GoogleAuthenticatorScreen> createState() =>
@@ -31,51 +34,57 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTwoFactorSetup();
+    if (widget.setupMode) {
+      _loadTwoFactorSetup();
+    } else {
+      setState(() {
+        _setupLoading = false;
+      });
+    }
   }
 
   Future<void> _loadTwoFactorSetup() async {
-  if (_email.isEmpty) {
-    setState(() {
-      _setupLoading = false;
-      _error = 'Please enter an email first.';
-    });
-    return;
-  }
-
-  setState(() {
-    _setupLoading = true;
-    _error = null;
-  });
-
-  try {
-    final result = await ApiService.setupTwoFactor(email: _email);
-    
-    final secret = (result['secret'] ?? '').toString();
-    final uri = (result['otpauth_uri'] ?? '').toString();
-
-    // Check if backend returned valid data
-    if (secret.isEmpty || uri.isEmpty) {
+    if (_email.isEmpty) {
       setState(() {
         _setupLoading = false;
-        _error = 'No account found for this email or 2FA is not enabled.';
+        _error = 'Please enter an email first.';
       });
       return;
     }
 
     setState(() {
-      _secret = secret;
-      _otpauthUri = uri;
-      _setupLoading = false;
+      _setupLoading = true;
+      _error = null;
     });
 
-  } catch (_) {
-    setState(() {
-      _setupLoading = false;
-      _error = 'Could not load authenticator setup for this email.';
-    });
+    try {
+      final result = await ApiService.setupTwoFactor(email: _email);
+
+      final secret = (result['secret'] ?? '').toString();
+      final uri = (result['otpauth_uri'] ?? '').toString();
+
+      // Check if backend returned valid data
+      if (secret.isEmpty || uri.isEmpty) {
+        setState(() {
+          _setupLoading = false;
+          _error = 'No account found for this email or 2FA is not enabled.';
+        });
+        return;
+      }
+
+      setState(() {
+        _secret = secret;
+        _otpauthUri = uri;
+        _setupLoading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _setupLoading = false;
+        _error = 'Could not load authenticator setup for this email.';
+      });
+    }
   }
-}
+
   @override
   void dispose() {
     _codeCtrl.dispose();
@@ -87,7 +96,7 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
       setState(() => _error = 'Email is required.');
       return;
     }
-    if (_secret.isEmpty || _otpauthUri.isEmpty) {
+    if (widget.setupMode && (_secret.isEmpty || _otpauthUri.isEmpty)) {
       setState(() => _error = 'Authenticator setup is not ready yet.');
       return;
     }
@@ -96,7 +105,8 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
       return;
     }
 
-    if (_codeCtrl.text.length != 6 || !RegExp(r'^\d{6}$').hasMatch(_codeCtrl.text)) {
+    if (_codeCtrl.text.length != 6 ||
+        !RegExp(r'^\d{6}$').hasMatch(_codeCtrl.text)) {
       setState(() => _error = 'Code must be exactly 6 digits');
       return;
     }
@@ -116,8 +126,16 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
       if (!result.containsKey('tokens')) {
         setState(() {
           _verifying = false;
-          _error = (result['error'] ?? 'Invalid authentication code.').toString();
+          _error = (result['error'] ?? 'Invalid authentication code.')
+              .toString();
         });
+        return;
+      }
+
+      if (widget.returnToCallerOnSuccess) {
+        if (!mounted) return;
+        setState(() => _verifying = false);
+        Navigator.pop(context, true);
         return;
       }
 
@@ -127,9 +145,14 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
       await prefs.setBool('is_logged_in', true);
 
       final user = result['user'];
-      final role = (user is Map ? (user['role'] ?? '').toString() : '').toLowerCase();
-      final userEmail = (user is Map ? (user['email'] ?? '').toString() : _email);
-      final userName = (user is Map ? (user['full_name'] ?? '').toString() : '');
+      final role = (user is Map ? (user['role'] ?? '').toString() : '')
+          .toLowerCase();
+      final userEmail = (user is Map
+          ? (user['email'] ?? '').toString()
+          : _email);
+      final userName = (user is Map
+          ? (user['full_name'] ?? '').toString()
+          : '');
       final userPhone = (user is Map ? (user['phone'] ?? '').toString() : '');
       if (userEmail.isNotEmpty) await prefs.setString('user_email', userEmail);
       if (userName.isNotEmpty) await prefs.setString('user_name', userName);
@@ -153,18 +176,6 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
     }
   }
 
-  void _copyCodesToClipboard() {
-    // Copy secret key to clipboard
-    if (_secret.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: _secret));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Secret key copied to clipboard'),
-        duration: Duration(milliseconds: 1500),
-      ),
-    );
-  }
-
   void _copySecretKey() {
     Clipboard.setData(ClipboardData(text: _secret));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -175,47 +186,56 @@ class _GoogleAuthenticatorScreenState extends State<GoogleAuthenticatorScreen> {
     );
   }
 
-Widget _buildQrCode() {
-  // ADD THIS CHECK
-  if (_otpauthUri.isEmpty || _secret.isEmpty) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline_rounded, size: 32, color: AppColors.error),
-          const SizedBox(height: 8),
-          const Text(
-            'No account found\nfor this email',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.error),
-          ),
-        ],
-      ),
-    );
+  Widget _buildQrCode() {
+    // ADD THIS CHECK
+    if (_otpauthUri.isEmpty || _secret.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 32,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'No account found\nfor this email',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: AppColors.error),
+            ),
+          ],
+        ),
+      );
+    }
+
+    try {
+      final qrCode = QrCode.fromData(
+        data: _otpauthUri,
+        errorCorrectLevel: QrErrorCorrectLevel.H,
+      );
+      return PrettyQrView(qrImage: QrImage(qrCode));
+    } catch (e) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 32,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'QR Code Error',
+              style: TextStyle(fontSize: 12, color: AppColors.error),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
-  try {
-    final qrCode = QrCode.fromData(
-      data: _otpauthUri,
-      errorCorrectLevel: QrErrorCorrectLevel.H,
-    );
-    return PrettyQrView(qrImage: QrImage(qrCode));
-  } catch (e) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline_rounded, size: 32, color: AppColors.error),
-          const SizedBox(height: 8),
-          const Text(
-            'QR Code Error',
-            style: TextStyle(fontSize: 12, color: AppColors.error),
-          ),
-        ],
-      ),
-    );
-  }
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -245,9 +265,11 @@ Widget _buildQrCode() {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Title
-            const Text(
-              'Setup Google Authenticator',
-              style: TextStyle(
+            Text(
+              widget.setupMode
+                  ? 'Setup Google Authenticator'
+                  : 'Verify Google Authenticator',
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
@@ -257,195 +279,196 @@ Widget _buildQrCode() {
             const SizedBox(height: 12),
 
             // Subtitle
-            const Text(
-              'Scan the QR code with Google Authenticator app to set up 2FA',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textMuted,
-              ),
+            Text(
+              widget.setupMode
+                  ? 'Scan the QR code with Google Authenticator app to set up 2FA.'
+                  : 'Enter the 6-digit code from your Google Authenticator app.',
+              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
 
             const SizedBox(height: 32),
 
-            // QR Code Section
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                   // Real Scannable QR Code
-                   Container(
-                    width: 220,
-                    height: 220,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+            if (widget.setupMode)
+              // QR Code Section
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    child: _setupLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _buildQrCode(),
-                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Instructions
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE3F2FD),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.primary.withOpacity(0.3),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Real Scannable QR Code
+                    Container(
+                      width: 220,
+                      height: 220,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
+                      child: _setupLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _buildQrCode(),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.info_outline_rounded,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: const Text(
-                            'Scan this QR code with Google Authenticator app',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                  // Secret Key (backup)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Manual Entry Key (Backup)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _secret,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontFamily: 'Courier',
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textDark,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                            ],
-                          ),
+                    // Instructions
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
                         ),
-                        GestureDetector(
-                          onTap: _copySecretKey,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
+                              color: AppColors.primary.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
-                              Icons.copy_rounded,
+                              Icons.info_outline_rounded,
                               size: 16,
                               color: AppColors.primary,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Info Box
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.info_outline_rounded,
-                      size: 20,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: const Text(
-                      'Save your backup codes in a safe place. You\'ll need them if you lose access to your authenticator.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: const Text(
+                              'Scan this QR code with Google Authenticator app',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+
+                    // Secret Key (backup)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Manual Entry Key (Backup)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _secret,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontFamily: 'Courier',
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textDark,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _copySecretKey,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.copy_rounded,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+
+            if (widget.setupMode) ...[
+              const SizedBox(height: 32),
+              // Info Box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.info_outline_rounded,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: const Text(
+                        'Save your backup codes in a safe place. You\'ll need them if you lose access to your authenticator.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 32),
 
@@ -469,9 +492,7 @@ Widget _buildQrCode() {
                 decoration: BoxDecoration(
                   color: AppColors.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.error.withOpacity(0.3),
-                  ),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
                 ),
                 child: Text(
                   _error!,
@@ -513,7 +534,10 @@ Widget _buildQrCode() {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border, width: 1),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                    width: 1,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -534,10 +558,7 @@ Widget _buildQrCode() {
 
             const Text(
               'Enter the 6-digit code from your authenticator app',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
 
             const SizedBox(height: 32),
@@ -561,7 +582,9 @@ Widget _buildQrCode() {
                         height: 24,
                         width: 24,
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                           strokeWidth: 2.5,
                         ),
                       )

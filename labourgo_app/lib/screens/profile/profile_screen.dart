@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/cust_theme.dart';
+import '../auth/google_authenticator_screen.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notifications_screen.dart';
@@ -17,6 +18,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
+  bool _twoFactorEnabled = false;
 
   @override
   void initState() {
@@ -29,10 +31,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final profile = await ApiService.getProfile();
       setState(() {
         _profile = profile;
+        _twoFactorEnabled = profile['two_factor_enabled'] == true;
         _loading = false;
       });
     } catch (e) {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateTwoFactorEnabled(bool enabled) async {
+    if (_profile == null) return;
+
+    if (enabled) {
+      final email = (_profile!['email'] ?? '').toString();
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account must have an email to enable 2FA.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GoogleAuthenticatorScreen(
+            email: email,
+            setupMode: true,
+            returnToCallerOnSuccess: true,
+          ),
+        ),
+      );
+
+      if (result == true && mounted) {
+        setState(() => _twoFactorEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Two-factor authentication enabled.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _loadProfile();
+      }
+      return;
+    }
+
+    if (!_twoFactorEnabled) return;
+
+    try {
+      await ApiService.updateProfile({'two_factor_enabled': false});
+      if (!mounted) return;
+      setState(() => _twoFactorEnabled = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Two-factor authentication disabled.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _loadProfile();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update 2FA status: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -205,6 +272,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
 
+          const SizedBox(height: 24),
+
+          _buildTwoFactorSection(),
+
           const SizedBox(height: 40),
 
           // Logout Button
@@ -233,6 +304,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTwoFactorSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Two-Factor Authentication',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Enable Google Authenticator for extra account security.',
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile.adaptive(
+            value: _twoFactorEnabled,
+            onChanged: (value) => _updateTwoFactorEnabled(value),
+            title: Text(
+              _twoFactorEnabled ? 'Enabled' : 'Disabled',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              _twoFactorEnabled
+                  ? 'Google Authenticator is active for login.'
+                  : 'Use only email/password login.',
+            ),
+            activeColor: AppColors.primary,
+            contentPadding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _twoFactorEnabled
+                ? 'Two-factor authentication is active. Disable it here if you no longer want to use Google Authenticator.'
+                : 'Toggle this button to set up Google Authenticator for your account.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
         ],
       ),
     );

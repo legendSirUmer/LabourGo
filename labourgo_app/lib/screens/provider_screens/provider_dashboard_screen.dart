@@ -37,7 +37,25 @@ class _ProviderDashboardScreenState extends State<ProviderDashboardScreen> {
       Map<String, dynamic>? provider;
 
       if (storedId != null) {
-        provider = await ApiService.getProviderById(storedId);
+        try {
+          provider = await ApiService.getProviderById(storedId);
+        } catch (_) {
+          final email = prefs.getString('user_email') ?? '';
+          final phone = prefs.getString('user_phone') ?? '';
+          if (email.isNotEmpty && phone.isNotEmpty) {
+            provider = await ApiService.findProviderByEmailPhone(email, phone);
+            final providerId =
+                provider?['provider_model_id'] ?? provider?['id'];
+            if (providerId is int && providerId != storedId) {
+              await prefs.setInt('provider_id', providerId);
+            } else if (providerId is String) {
+              final parsed = int.tryParse(providerId);
+              if (parsed != null && parsed != storedId) {
+                await prefs.setInt('provider_id', parsed);
+              }
+            }
+          }
+        }
       } else {
         final email = prefs.getString('user_email') ?? '';
         final phone = prefs.getString('user_phone') ?? '';

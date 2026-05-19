@@ -79,6 +79,28 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
     final skills = _providerSkills(
       provider,
     ).map((skill) => skill.toLowerCase()).toList(growable: false);
+    final serviceValue = (provider['service'] ?? provider['service_name'] ?? '')
+        .toString()
+        .toLowerCase();
+    final categoryValue =
+        (provider['category_name'] ?? provider['category'] ?? '')
+            .toString()
+            .toLowerCase();
+
+    final providerId = int.tryParse(provider['id']?.toString() ?? '');
+    if (_selectedProvider != null && providerId == _selectedProvider) {
+      return true;
+    }
+
+    final hasCategoryMetadata =
+        skills.isNotEmpty ||
+        serviceValue.isNotEmpty ||
+        categoryValue.isNotEmpty;
+
+    if (!hasCategoryMetadata) {
+      return false;
+    }
+
     if (skills.any((skill) {
       return skill == selectedCategory ||
           skill.contains(selectedCategory) ||
@@ -87,17 +109,10 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
       return true;
     }
 
-    final serviceValue = (provider['service'] ?? provider['service_name'] ?? '')
-        .toString()
-        .toLowerCase();
     if (serviceValue.isNotEmpty && serviceValue.contains(selectedCategory)) {
       return true;
     }
 
-    final categoryValue =
-        (provider['category_name'] ?? provider['category'] ?? '')
-            .toString()
-            .toLowerCase();
     if (categoryValue.isNotEmpty && categoryValue.contains(selectedCategory)) {
       return true;
     }

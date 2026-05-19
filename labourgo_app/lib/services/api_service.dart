@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   static const String baseUrl = "https://kgz17l6w-8000.inc1.devtunnels.ms/api";
+  //static const String baseUrl = "http://127.0.0.1:8000/api";
 
   // ── Save token locally ───────────────────────────────────
   static Future<void> saveToken(String token) async {
@@ -55,29 +56,75 @@ class ApiService {
     return '$_apiRoot/$path';
   }
 
+  static String _providerLookupKey(Map<String, dynamic> provider) {
+    final email = (provider['email'] ?? '').toString().trim().toLowerCase();
+    if (email.isNotEmpty) return email;
+    return (provider['phone'] ?? '').toString().replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+  }
+
   // =========================
   // GET Providers
   // =========================
   static Future<List<Map<String, dynamic>>> fetchProviders() async {
-    final response = await http.get(
+    final authResponse = await http.get(
+      Uri.parse('$baseUrl/auth/providers/'),
+      headers: await _authHeaders(),
+    );
+
+    if (authResponse.statusCode != 200) {
+      throw Exception('Failed to load providers (${authResponse.statusCode}).');
+    }
+
+    if (authResponse.body.isEmpty) {
+      throw Exception('Empty response from server');
+    }
+
+    final authDecoded = json.decode(authResponse.body);
+    if (authDecoded is! List) {
+      throw Exception('Unexpected response from server');
+    }
+
+    final profileResponse = await http.get(
       Uri.parse('$baseUrl/providers/'),
       headers: const {'Accept': 'application/json'},
     );
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load providers (${response.statusCode}).');
+    Map<String, Map<String, dynamic>> profileMap = {};
+    if (profileResponse.statusCode == 200 && profileResponse.body.isNotEmpty) {
+      final profileDecoded = json.decode(profileResponse.body);
+      if (profileDecoded is List) {
+        for (final item in profileDecoded.whereType<Map<String, dynamic>>()) {
+          final key = _providerLookupKey(item);
+          if (key.isNotEmpty) {
+            profileMap[key] = item;
+          }
+        }
+      }
     }
 
-    if (response.body.isEmpty) {
-      throw Exception('Empty response from server');
-    }
-
-    final decoded = json.decode(response.body);
-    if (decoded is! List) {
-      throw Exception('Unexpected response from server');
-    }
-
-    return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
+    return authDecoded
+        .whereType<Map<String, dynamic>>()
+        .map((provider) {
+          final merged = Map<String, dynamic>.from(provider);
+          final lookupKey = _providerLookupKey(provider);
+          final profile = profileMap[lookupKey];
+          if (profile != null) {
+            for (final entry in profile.entries) {
+              if (entry.key == 'id' ||
+                  entry.key == 'email' ||
+                  entry.key == 'full_name' ||
+                  entry.key == 'phone') {
+                continue;
+              }
+              merged[entry.key] = entry.value;
+            }
+          }
+          return merged;
+        })
+        .toList(growable: false);
   }
 
   static Future<List<Map<String, dynamic>>> fetchServiceCategories() async {
@@ -327,11 +374,28 @@ class ApiService {
     String email,
     String phone,
   ) async {
-    final providers = await fetchProviders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/providers/'),
+      headers: const {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load providers (${response.statusCode}).');
+    }
+
+    if (response.body.isEmpty) {
+      return null;
+    }
+
+    final decoded = json.decode(response.body);
+    if (decoded is! List) {
+      throw Exception('Unexpected response from server');
+    }
+
     final normalizedEmail = email.trim().toLowerCase();
     final normalizedPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
-    for (final item in providers) {
+    for (final item in decoded.whereType<Map<String, dynamic>>()) {
       final providerEmail = (item['email'] ?? '')
           .toString()
           .trim()
