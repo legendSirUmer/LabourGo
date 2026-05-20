@@ -197,5 +197,18 @@ else:
         },
     }
 
+
+ALLOWED_HOSTS = [
+    "labourgo.onrender.com",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://labourgo.onrender.com",
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 # To use Redis locally, set REDIS_URL in backend/.env or environment:
 # REDIS_URL=redis://127.0.0.1:6379
